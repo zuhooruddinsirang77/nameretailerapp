@@ -11,7 +11,7 @@ import '../../cart/screens/configure_placement_sheet.dart';
 import '../../marketplace/data/product_repository.dart';
 import '../../marketplace/providers/product_provider.dart';
 import '../../marketplace/providers/shortlist_provider.dart';
-import '../widgets/featured_card.dart';
+import '../../marketplace/widgets/product_card.dart';
 
 final featuredProductsProvider = FutureProvider.autoDispose((ref) async {
   final repo = ref.watch(productRepositoryProvider);
@@ -27,16 +27,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
-
-  static const List<({String name, IconData icon})> _quickTopics = [
-    (name: 'Business', icon: Icons.business_center_outlined),
-    (name: 'Technology', icon: Icons.memory_outlined),
-    (name: 'Marketing', icon: Icons.campaign_outlined),
-    (name: 'Finance', icon: Icons.account_balance_outlined),
-    (name: 'Health', icon: Icons.health_and_safety_outlined),
-    (name: 'Travel', icon: Icons.flight_takeoff_outlined),
-    (name: 'E-commerce', icon: Icons.shopping_bag_outlined),
-    (name: 'Education', icon: Icons.school_outlined),
+  static const _topics = [
+    'Business',
+    'Technology',
+    'Marketing',
+    'Finance',
+    'Health',
+    'Travel',
   ];
 
   @override
@@ -69,17 +66,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await ref.read(featuredProductsProvider.future);
     } catch (_) {
-      // The section renders its own error state.
+      // The featured section displays the retry action.
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final shortlistCount = ref.watch(shortlistProvider.select((l) => l.length));
     final cartCount = ref.watch(cartItemCountProvider);
-    final padding = context.pagePadding(top: AppSpace.sm);
 
     return Scaffold(
+      backgroundColor: p.heroStart,
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
@@ -87,34 +85,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           slivers: [
             SliverAppBar(
               pinned: true,
-              toolbarHeight: (MediaQuery.textScalerOf(context).scale(42) + 12)
-                  .clamp(68, double.infinity),
+              backgroundColor: p.heroStart,
+              foregroundColor: HeroPanel.on,
+              toolbarHeight: 68,
               titleSpacing: AppSpace.gutter,
               title: Row(
                 children: [
-                  const BrandMark(size: 36),
-                  const SizedBox(width: AppSpace.md),
+                  const BrandMark(size: 30),
+                  const SizedBox(width: AppSpace.sm),
                   Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'NameRetailer',
-                          style: context.text.titleLarge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Publisher marketplace',
-                          style: context.text.labelSmall?.copyWith(
-                            color: context.palette.textMuted,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: Text(
+                      'NameRetailer',
+                      style: context.text.titleLarge?.copyWith(
+                        color: HeroPanel.on,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -122,192 +108,160 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               actions: [
                 IconButton(
                   tooltip: 'Saved publications',
+                  style: IconButton.styleFrom(foregroundColor: HeroPanel.on),
                   icon: CountBadge(
                     count: shortlistCount,
                     semanticLabel: '$shortlistCount saved',
-                    child: const Icon(Icons.bookmark_border_rounded),
+                    child: const Icon(Icons.favorite_border_rounded, size: 22),
                   ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    context.push('/shortlist');
-                  },
+                  onPressed: () => context.push('/shortlist'),
                 ),
                 IconButton(
                   tooltip: 'Planning cart',
+                  style: IconButton.styleFrom(foregroundColor: HeroPanel.on),
                   icon: CountBadge(
                     count: cartCount,
                     semanticLabel: '$cartCount in cart',
-                    child: const Icon(Icons.shopping_bag_outlined),
+                    child: const Icon(Icons.shopping_bag_outlined, size: 22),
                   ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    context.go('/cart');
-                  },
+                  onPressed: () => context.go('/cart'),
                 ),
                 const SizedBox(width: AppSpace.xs),
               ],
+              systemOverlayStyle: SystemUiOverlayStyle.light,
             ),
-            SliverPadding(
-              padding: padding,
-              sliver: SliverList.list(
-                children: [
-                  FadeSlideIn(
-                    child: _Hero(
-                      controller: _searchController,
-                      onSearch: _search,
+            SliverToBoxAdapter(
+              child: HeroPanel(
+                radius: 0,
+                padding: context.pagePadding(
+                  top: AppSpace.sm,
+                  bottom: AppSpace.xl,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Overline(
+                      'Direct guest-post placements',
+                      color: HeroPanel.onMuted,
                     ),
-                  ),
-                  const SizedBox(height: AppSpace.xl),
-                  SectionHeader(
-                    title: 'Browse by niche',
-                    subtitle: 'Find publishers in your industry',
-                    actionLabel: 'All',
-                    onAction: () => context.go('/marketplace'),
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                  _TopicRail(topics: _quickTopics, onSelected: _filterTopic),
-                  const SizedBox(height: AppSpace.xl),
-                  SectionHeader(
-                    title: 'Featured publishers',
-                    subtitle: 'Leading publications by Domain Rating',
-                    actionLabel: 'See all',
-                    onAction: () => context.go('/marketplace'),
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                ],
+                    const SizedBox(height: AppSpace.md),
+                    Semantics(
+                      header: true,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'Find your next\n'),
+                            const TextSpan(
+                              text: 'perfect placement.',
+                              style: TextStyle(color: HeroPanel.accent),
+                            ),
+                          ],
+                        ),
+                        style: context.text.displayLarge?.copyWith(
+                          color: HeroPanel.on,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    Text(
+                      'Discover trusted publishers for your next big idea. Plan, publish and grow with confidence.',
+                      style: context.text.bodyMedium?.copyWith(
+                        color: HeroPanel.onMuted,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.lg),
+                    Theme(
+                      data: AppThemeForSearch.of(context),
+                      child: AppSearchField(
+                        controller: _searchController,
+                        hint: 'Search a domain or niche…',
+                        onSubmitted: _search,
+                        fillColor: Colors.white,
+                        trailing: Padding(
+                          padding: const EdgeInsets.all(AppSpace.xs),
+                          child: IconButton.filled(
+                            tooltip: 'Search',
+                            onPressed: () => _search(_searchController.text),
+                            style: IconButton.styleFrom(
+                              backgroundColor: p.brand,
+                              foregroundColor: p.onBrand,
+                              minimumSize: const Size.square(
+                                AppSpace.minTarget,
+                              ),
+                              shape: const CircleBorder(),
+                            ),
+                            icon: const Icon(Icons.arrow_forward_rounded),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    _TopicRail(topics: _topics, onSelected: _filterTopic),
+                  ],
+                ),
               ),
             ),
             SliverToBoxAdapter(
-              child: _FeaturedSection(horizontalInset: padding.left),
-            ),
-            SliverPadding(
-              padding: padding.copyWith(top: AppSpace.xl),
-              sliver: SliverList.list(
-                children: [
-                  const SectionHeader(
-                    title: 'Why buyers choose us',
-                    subtitle: 'Built for agencies, brands and SEO teams',
+              child: Container(
+                decoration: BoxDecoration(
+                  color: p.background,
+                  borderRadius: AppRadius.sheetTop,
+                ),
+                child: Padding(
+                  padding: context.pagePadding(top: AppSpace.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _TrustTiles(),
+                      const SizedBox(height: AppSpace.xl),
+                      SectionHeader(
+                        title: 'Featured publishers',
+                        actionLabel: 'See all',
+                        onAction: () => context.go('/marketplace'),
+                      ),
+                      const SizedBox(height: AppSpace.md),
+                      const _FeaturedSection(),
+                      const SizedBox(height: AppSpace.xl),
+                      const AppCard(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Stat(value: '56,000+', label: 'Live domains'),
+                            _Stat(value: '80+', label: 'Countries'),
+                            _Stat(value: '3–5 days', label: 'Turnaround'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpace.xl),
+                      AppCard(
+                        tone: AppCardTone.brand,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'A little help finding the right fit?',
+                              style: context.text.titleMedium,
+                            ),
+                            const SizedBox(height: AppSpace.sm),
+                            Text(
+                              'Tell us your niche, audience and campaign goals. Our team can help you find the right publishers.',
+                              style: context.text.bodySmall,
+                            ),
+                            const SizedBox(height: AppSpace.md),
+                            AppButton(
+                              label: 'Send an inquiry',
+                              icon: Icons.mail_outline_rounded,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () => context.push('/inquiry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppSpace.md),
-                  const _ValueProps(),
-                  const SizedBox(height: AppSpace.xl),
-                  AppCard(
-                    tone: AppCardTone.brand,
-                    child: _HelpBanner(
-                      onInquire: () => context.push('/inquiry'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Hero extends StatelessWidget {
-  const _Hero({required this.controller, required this.onSearch});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Overline('Direct guest-post placements', color: p.brandText),
-        const SizedBox(height: AppSpace.md),
-        Semantics(
-          header: true,
-          child: Text(
-            'Your next placement\nstarts here.',
-            style: context.text.displayMedium,
-          ),
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Discover publishers that fit your audience, with clear metrics and placement pricing.',
-          style: context.text.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: controller,
-                hint: 'Search a domain or niche',
-                onSubmitted: onSearch,
-              ),
-            ),
-            const SizedBox(width: AppSpace.sm),
-            IconButton.filled(
-              tooltip: 'Search',
-              onPressed: () => onSearch(controller.text),
-              style: IconButton.styleFrom(
-                minimumSize: const Size.square(AppSpace.minTarget + 4),
-                backgroundColor: p.brand,
-                foregroundColor: p.onBrand,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: AppRadius.brLg,
                 ),
               ),
-              icon: const Icon(Icons.arrow_forward_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpace.lg),
-        const AppCard(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.lg,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HeroStat(value: '56,000+', label: 'Live domains'),
-              _HeroDivider(),
-              _HeroStat(value: '80+', label: 'Countries'),
-              _HeroDivider(),
-              _HeroStat(value: '3–5 days', label: 'Avg turnaround'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Semantics(
-        label: '$value $label',
-        excludeSemantics: true,
-        child: Column(
-          children: [
-            Text(
-              value,
-              textAlign: TextAlign.center,
-              style: context.text.titleMedium,
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: context.text.labelMedium?.copyWith(
-                color: context.palette.textMuted,
-                fontWeight: FontWeight.w500,
-              ),
             ),
           ],
         ),
@@ -316,266 +270,207 @@ class _HeroStat extends StatelessWidget {
   }
 }
 
-class _HeroDivider extends StatelessWidget {
-  const _HeroDivider();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 32,
-    margin: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
-    color: context.palette.border,
+/// White search well stays legible on the navy hero in either app theme.
+abstract final class AppThemeForSearch {
+  static ThemeData of(BuildContext context) => Theme.of(context).copyWith(
+    textTheme: Theme.of(context).textTheme.apply(
+      bodyColor: AppPalette.light.text,
+      displayColor: AppPalette.light.text,
+    ),
+    inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+      prefixIconColor: AppPalette.light.textMuted,
+      hintStyle: context.text.bodyMedium?.copyWith(
+        color: AppPalette.light.textMuted,
+      ),
+      enabledBorder: const OutlineInputBorder(
+        borderRadius: AppRadius.brPill,
+        borderSide: BorderSide.none,
+      ),
+    ),
   );
 }
 
 class _TopicRail extends StatelessWidget {
   const _TopicRail({required this.topics, required this.onSelected});
-
-  final List<({String name, IconData icon})> topics;
+  final List<String> topics;
   final ValueChanged<String> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    // Height follows the user's text size so labels never clip.
-    final height = MediaQuery.textScalerOf(context).scale(24) + 24;
-    return SizedBox(
-      height: height.clamp(AppSpace.minTarget, 120),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        itemCount: topics.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
-        itemBuilder: (context, i) {
-          final t = topics[i];
-          return Semantics(
-            button: true,
-            label: 'Browse ${t.name} publications',
-            excludeSemantics: true,
-            child: Pressable(
-              onTap: () => onSelected(t.name),
-              child: Material(
-                color: p.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.brMd,
-                  side: BorderSide(color: p.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => onSelected(t.name),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.lg,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(t.icon, size: 18, color: p.brandText),
-                        const SizedBox(width: AppSpace.sm),
-                        Text(t.name, style: context.text.labelLarge),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+  Widget build(BuildContext context) => SizedBox(
+    height: (MediaQuery.textScalerOf(context).scale(20) + 24).clamp(48, 100),
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: topics.length,
+      separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+      itemBuilder: (context, i) => Center(
+        child: ActionChip(
+          label: Text(topics[i]),
+          onPressed: () => onSelected(topics[i]),
+          color: WidgetStatePropertyAll(
+            i == 0 ? Colors.white : HeroPanel.onFaint,
+          ),
+          backgroundColor: i == 0 ? Colors.white : HeroPanel.onFaint,
+          side: const BorderSide(color: HeroPanel.onFaint),
+          labelStyle: context.text.labelMedium?.copyWith(
+            color: i == 0 ? context.palette.heroStart : HeroPanel.on,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm,
+            vertical: AppSpace.sm,
+          ),
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _FeaturedSection extends ConsumerWidget {
-  const _FeaturedSection({required this.horizontalInset});
-
-  final double horizontalInset;
+  const _FeaturedSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final featured = ref.watch(featuredProductsProvider);
-
     return AnimatedSwitcher(
       duration: AppMotion.of(context),
       child: featured.when(
-        loading: () => SkeletonLoader(
-          key: const ValueKey('loading'),
+        loading: () => const SkeletonLoader(
           semanticLabel: 'Loading featured publishers',
-          child: _Rail(
-            inset: horizontalInset,
-            children: const [FeaturedCardSkeleton(), FeaturedCardSkeleton()],
+          child: Column(
+            children: [
+              SkeletonBox(height: 132, radius: AppRadius.lg),
+              SizedBox(height: AppSpace.sm),
+              SkeletonBox(height: 132, radius: AppRadius.lg),
+            ],
           ),
         ),
-        error: (err, _) => Padding(
-          key: const ValueKey('error'),
-          padding: EdgeInsets.symmetric(horizontal: horizontalInset),
-          child: AppCard(
-            child: ErrorState(
-              error: err,
-              compact: true,
-              onRetry: () => ref.invalidate(featuredProductsProvider),
-            ),
+        error: (err, _) => AppCard(
+          child: ErrorState(
+            error: err,
+            compact: true,
+            onRetry: () => ref.invalidate(featuredProductsProvider),
           ),
         ),
-        data: (page) {
-          if (page.data.isEmpty) {
-            return Padding(
-              key: const ValueKey('empty'),
-              padding: EdgeInsets.symmetric(horizontal: horizontalInset),
-              child: const AppCard(
+        data: (page) => page.data.isEmpty
+            ? const AppCard(
                 tone: AppCardTone.sunken,
                 child: Text(
                   'No featured publishers right now. Check back soon.',
                 ),
-              ),
-            );
-          }
-          return _Rail(
-            key: const ValueKey('data'),
-            inset: horizontalInset,
-            children: [
-              for (final product in page.data)
-                FeaturedCard(
-                  product: product,
-                  onTap: () => context.push('/domain/${product.id}'),
-                  onPlan: () => showPlacementSheet(context, product),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Content-sized rail; cards grow naturally with the system text size.
-class _Rail extends StatelessWidget {
-  const _Rail({super.key, required this.inset, required this.children});
-
-  final double inset;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: inset),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(width: AppSpace.md),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ValueProps extends StatelessWidget {
-  const _ValueProps();
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    const items = [
-      (
-        icon: Icons.verified_user_outlined,
-        title: 'Direct publisher placements',
-        body:
-            'Real publications with authentic traffic, indexed pages and DoFollow options.',
-      ),
-      (
-        icon: Icons.price_check_outlined,
-        title: 'Transparent pricing',
-        body:
-            'Placement and optional writing (500w–1000w) are quoted clearly, with no hidden fees.',
-      ),
-      (
-        icon: Icons.assignment_turned_in_outlined,
-        title: 'An organised planning cart',
-        body:
-            'Draft anchor text, target URLs and publisher notes before you order.',
-      ),
-    ];
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) Divider(height: 1, color: p.border),
-            Padding(
-              padding: const EdgeInsets.all(AppSpace.lg),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              )
+            : Column(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: p.brandSoft,
-                      borderRadius: AppRadius.brMd,
+                  for (var i = 0; i < page.data.length; i++) ...[
+                    if (i > 0) const SizedBox(height: AppSpace.sm),
+                    ProductCard(
+                      product: page.data[i],
+                      onTap: () => context.push('/domain/${page.data[i].id}'),
+                      onPlan: () => showPlacementSheet(context, page.data[i]),
                     ),
-                    child: Icon(items[i].icon, size: 20, color: p.brandText),
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(items[i].title, style: context.text.titleSmall),
-                        const SizedBox(height: 2),
-                        Text(items[i].body, style: context.text.bodySmall),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
-            ),
-          ],
-        ],
       ),
     );
   }
 }
 
-class _HelpBanner extends StatelessWidget {
-  const _HelpBanner({required this.onInquire});
-
-  final VoidCallback onInquire;
+class _TrustTiles extends StatelessWidget {
+  const _TrustTiles();
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    final items = [
+      (
+        icon: Icons.sell_outlined,
+        label: 'Trusted\npublishers',
+        color: p.brandText,
+      ),
+      (icon: Icons.bolt_rounded, label: 'Clear\npricing', color: p.metricDr),
+      (
+        icon: Icons.shield_outlined,
+        label: 'Private\nplanning',
+        color: p.brandText,
+      ),
+      (
+        icon: Icons.people_alt_outlined,
+        label: 'Expert\nsupport',
+        color: p.successText,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = MediaQuery.textScalerOf(context).scale(1) > 1.4 ? 2 : 4;
+        final width =
+            (constraints.maxWidth - AppSpace.sm * (columns - 1)) / columns;
+        return Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
           children: [
-            Icon(Icons.support_agent_rounded, color: p.brandText),
-            const SizedBox(width: AppSpace.sm),
-            Expanded(
-              child: Text(
-                'Need custom placement help?',
-                style: context.text.titleMedium,
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: AppCard(
+                  tone: AppCardTone.sunken,
+                  radius: AppRadius.md,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.xs,
+                    vertical: AppSpace.md,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: p.tint(item.color),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(item.icon, color: item.color, size: 20),
+                      ),
+                      const SizedBox(height: AppSpace.xs),
+                      Text(
+                        item.label,
+                        textAlign: TextAlign.center,
+                        style: context.text.labelSmall?.copyWith(
+                          color: p.text,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Tell us about niche requirements or high-volume orders and our team will line up the right publishers.',
-          style: context.text.bodySmall?.copyWith(color: p.textSecondary),
-        ),
-        const SizedBox(height: AppSpace.md),
-        AppButton(
-          label: 'Send an inquiry',
-          icon: Icons.mail_outline_rounded,
-          variant: AppButtonVariant.secondary,
-          onPressed: onInquire,
-        ),
-      ],
+        );
+      },
     );
   }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          value,
+          style: context.text.titleMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpace.xs),
+        Text(
+          label,
+          style: context.text.labelSmall?.copyWith(
+            color: context.palette.textMuted,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ),
+  );
 }

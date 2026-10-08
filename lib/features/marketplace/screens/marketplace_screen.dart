@@ -167,6 +167,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
     final filters = ref.watch(productFilterProvider);
     final productsAsync = ref.watch(productListProvider);
     final shortlistCount = ref.watch(shortlistProvider.select((l) => l.length));
+    final categories =
+        ref.watch(facetsProvider).valueOrNull?.categories ?? const <String>[];
     final sortLabel = _sortOptions
         .firstWhere(
           (o) => o.key == filters.sort,
@@ -177,14 +179,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catalog'),
+        title: const Text('Search publications'),
         actions: [
           IconButton(
             tooltip: 'Saved publications',
             icon: CountBadge(
               count: shortlistCount,
               semanticLabel: '$shortlistCount saved',
-              child: const Icon(Icons.bookmark_border_rounded),
+              child: const Icon(Icons.favorite_border_rounded),
             ),
             onPressed: () {
               HapticFeedback.lightImpact();
@@ -220,32 +222,51 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                         ),
                       ),
                       const SizedBox(width: AppSpace.sm),
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: context.palette.brandSoft,
+                          foregroundColor: context.palette.brandText,
+                        ),
+                        tooltip: filters.activeFilterCount > 0
+                            ? 'Filters, ${filters.activeFilterCount} active'
+                            : 'Filters',
+                        onPressed: _openFilters,
+                        icon: CountBadge(
+                          count: filters.activeFilterCount,
+                          child: const Icon(Icons.tune_rounded, size: 20),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpace.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ToolbarButton(
-                          icon: Icons.tune_rounded,
-                          tooltip: filters.activeFilterCount > 0
-                              ? 'Filters, ${filters.activeFilterCount} active'
-                              : 'Filters',
-                          badge: filters.activeFilterCount,
-                          onPressed: _openFilters,
-                          label: 'Filters',
-                        ),
-                      ),
-                      const SizedBox(width: AppSpace.sm),
-                      Expanded(
-                        child: _ToolbarButton(
-                          icon: Icons.swap_vert_rounded,
-                          tooltip: 'Sort, currently $sortLabel',
-                          onPressed: _openSort,
-                          label: sortLabel,
-                        ),
-                      ),
-                    ],
+                  SizedBox(
+                    height: MediaQuery.textScalerOf(context).scale(20) + 28,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categories.length + 1,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: AppSpace.sm),
+                      itemBuilder: (context, i) {
+                        final category = i == 0 ? null : categories[i - 1];
+                        final selected = filters.category == category;
+                        return Center(
+                          child: ChoiceChip(
+                            label: Text(category ?? 'All'),
+                            selected: selected,
+                            showCheckmark: false,
+                            selectedColor: context.palette.brand,
+                            labelStyle: context.text.labelMedium?.copyWith(
+                              color: selected
+                                  ? context.palette.onBrand
+                                  : context.palette.textSecondary,
+                            ),
+                            onSelected: (_) => _setFilters(
+                              filters.edit(category: category, page: 1),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -271,42 +292,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               onPage: (page) => _goToPage(filters, page),
               onReset: () => _resetAll(filters),
               onRetry: () => ref.invalidate(productListProvider),
+              onSort: _openSort,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ToolbarButton extends StatelessWidget {
-  const _ToolbarButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    required this.label,
-    this.badge = 0,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final int badge;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: AppButton(
-        label: badge > 0 ? '$label ($badge)' : label,
-        icon: icon,
-        variant: badge > 0
-            ? AppButtonVariant.secondary
-            : AppButtonVariant.outline,
-        onPressed: onPressed,
-        expand: true,
-        semanticLabel: tooltip,
       ),
     );
   }
@@ -433,6 +422,7 @@ class _Results extends ConsumerWidget {
     required this.onPage,
     required this.onReset,
     required this.onRetry,
+    required this.onSort,
   });
 
   final AsyncValue<ProductPage> async;
@@ -443,6 +433,7 @@ class _Results extends ConsumerWidget {
   final ValueChanged<int> onPage;
   final VoidCallback onReset;
   final VoidCallback onRetry;
+  final VoidCallback onSort;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -498,10 +489,15 @@ class _Results extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          Text(
-                            sortLabel,
-                            style: context.text.labelMedium?.copyWith(
-                              color: context.palette.textMuted,
+                          Tooltip(
+                            message: 'Sort, currently $sortLabel',
+                            child: AppButton(
+                              label: 'Sort',
+                              icon: Icons.swap_vert_rounded,
+                              size: AppButtonSize.small,
+                              variant: AppButtonVariant.outline,
+                              semanticLabel: 'Sort, currently $sortLabel',
+                              onPressed: onSort,
                             ),
                           ),
                         ],

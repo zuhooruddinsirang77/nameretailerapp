@@ -154,8 +154,12 @@ class FakeCartRepo implements CartRepository {
 }
 
 class FakeCheckoutRepo implements CheckoutRepository {
+  FakeCheckoutRepo({this.draft});
+  final CheckoutDraft? draft;
+
   @override
   Future<CheckoutView> getCheckout() async => CheckoutView(
+    draft: draft,
     cart: await FakeCartRepo().getCart(),
     issues: const ['One publication changed price since you added it.'],
   );

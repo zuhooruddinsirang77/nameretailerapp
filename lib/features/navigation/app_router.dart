@@ -46,7 +46,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 2: Cart
+          // Branch 2: Saved publications
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/shortlist',
+                builder: (context, state) => const ShortlistScreen(),
+              ),
+            ],
+          ),
+          // Branch 3: Cart
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -55,7 +64,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 3: Profile / Account
+          // Branch 4: Profile / Account
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -75,13 +84,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'] ?? '';
           return DomainDetailScreen(productId: id);
         },
-      ),
-
-      // Shortlist screen
-      GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
-        path: '/shortlist',
-        builder: (context, state) => const ShortlistScreen(),
       ),
 
       // Checkout screen

@@ -66,7 +66,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final p = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Profile')),
       body: ListView(
         padding: context.pagePadding(top: AppSpace.sm),
         children: [
@@ -84,8 +84,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: _StatCard(
                     value: '$shortlistCount',
                     label: 'Saved',
-                    icon: Icons.bookmark_rounded,
-                    color: p.warningText,
+                    icon: Icons.favorite_rounded,
+                    color: p.brandText,
                     onTap: () => context.push('/shortlist'),
                   ),
                 ),
@@ -108,7 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           AppListGroup(
             children: [
               AppListTile(
-                icon: Icons.bookmark_outline_rounded,
+                icon: Icons.favorite_border_rounded,
                 title: 'Saved publications',
                 subtitle: '$shortlistCount saved · compare side by side',
                 onTap: () => context.push('/shortlist'),
@@ -203,14 +203,14 @@ class _Header extends StatelessWidget {
       children: [
         Text(
           name ?? 'Guest',
-          style: context.text.titleLarge,
+          style: context.text.titleLarge?.copyWith(color: HeroPanel.on),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: AppSpace.xs),
         Text(
           email ?? 'Sign in to sync your cart and drafts',
-          style: context.text.bodySmall,
+          style: context.text.bodySmall?.copyWith(color: HeroPanel.onMuted),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -220,15 +220,12 @@ class _Header extends StatelessWidget {
       width: 52,
       height: 52,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: p.brandSoft,
-        borderRadius: AppRadius.brLg,
-      ),
+      decoration: BoxDecoration(color: p.brand, shape: BoxShape.circle),
       child: initial == null
-          ? Icon(Icons.person_outline_rounded, color: p.brandText)
+          ? const Icon(Icons.person_outline_rounded, color: HeroPanel.on)
           : Text(
               initial,
-              style: context.text.headlineLarge?.copyWith(color: p.brandText),
+              style: context.text.headlineLarge?.copyWith(color: HeroPanel.on),
             ),
     );
     final edit = onEdit == null
@@ -236,9 +233,10 @@ class _Header extends StatelessWidget {
         : AppIconButton(
             icon: Icons.edit_outlined,
             tooltip: 'Edit name',
+            color: HeroPanel.on,
             onPressed: onEdit,
           );
-    return AppCard(
+    return HeroPanel(
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 280 ||

@@ -8,10 +8,10 @@ import '../../../core/widgets/widgets.dart';
 import '../models/product.dart';
 import 'bookmark_button.dart';
 
-/// Hero tag shared by the catalogue card avatar and the detail header.
 String domainHeroTag(String productId) => 'domain-avatar-$productId';
 
-/// Scannable publication card: identity, key metrics, price and actions.
+/// Compact artwork, identity, metrics and price with separate save/plan targets.
+/// Large text uses a stacked layout so all information stays available.
 class ProductCard extends StatelessWidget {
   const ProductCard({
     super.key,
@@ -24,9 +24,6 @@ class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
   final VoidCallback onPlan;
-
-  /// Enables the avatar hero transition into the detail screen. Only one card
-  /// per product may enable this at a time (the catalogue list does).
   final bool heroEnabled;
 
   @override
@@ -34,9 +31,7 @@ class ProductCard extends StatelessWidget {
     final p = context.palette;
     final domain = Formatters.cleanDomain(product.domain);
     final m = product.metrics;
-    final hasTraffic = (m.traffic ?? 0) > 0;
-
-    Widget avatar = DomainAvatar(domain: product.domain);
+    Widget avatar = DomainAvatar(domain: product.domain, size: 68);
     if (heroEnabled) {
       avatar = Hero(
         tag: domainHeroTag(product.id),
@@ -48,97 +43,145 @@ class ProductCard extends StatelessWidget {
       );
     }
 
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          domain,
+          style: context.text.titleMedium,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppSpace.xs),
+        Text(
+          '${product.category} · ${product.country}',
+          style: context.text.bodySmall,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppSpace.xs),
+        Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.xs,
+          children: [
+            if (m.dr != null) _MetricLabel(label: 'DR', value: '${m.dr}'),
+            if (m.da != null) _MetricLabel(label: 'DA', value: '${m.da}'),
+            if ((m.traffic ?? 0) > 0)
+              _MetricLabel(
+                label: 'Traffic',
+                value: Formatters.formatCompact(m.traffic),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.sm),
+        Text(
+          'From ${Formatters.formatCurrency(product.priceCents)}',
+          style: context.text.titleMedium?.copyWith(
+            color: p.price,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+
+    final plan = IconButton.filled(
+      tooltip: 'Plan a placement on $domain',
+      onPressed: () {
+        HapticFeedback.lightImpact();
+        onPlan();
+      },
+      style: IconButton.styleFrom(
+        backgroundColor: p.brand,
+        foregroundColor: p.onBrand,
+        minimumSize: const Size.square(AppSpace.minTarget),
+        shape: const CircleBorder(),
+      ),
+      icon: const Icon(Icons.add_shopping_cart_rounded, size: 21),
+    );
+
     return AppCard(
-      padding: const EdgeInsets.all(AppSpace.lg),
+      padding: const EdgeInsets.all(AppSpace.md),
+      radius: AppRadius.lg,
+      raised: true,
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      semanticLabel: 'View $domain',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final large =
+              MediaQuery.textScalerOf(context).scale(1) > 1.4 ||
+              constraints.maxWidth < 260;
+          if (large) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    avatar,
+                    const Spacer(),
+                    BookmarkButton(product: product),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.md),
+                identity,
+                const SizedBox(height: AppSpace.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        product.linkType,
+                        style: context.text.bodySmall,
+                      ),
+                    ),
+                    plan,
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               avatar,
               const SizedBox(width: AppSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      domain,
-                      style: context.text.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${product.category}  ·  ${product.country}',
-                      style: context.text.bodySmall?.copyWith(
-                        color: p.textMuted,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              BookmarkButton(product: product),
-            ],
-          ),
-          const SizedBox(height: AppSpace.md),
-          MetricStrip(
-            metrics: [
-              (kind: MetricKind.dr, value: m.dr),
-              (kind: MetricKind.da, value: m.da),
-              if (hasTraffic) (kind: MetricKind.traffic, value: m.traffic),
-            ],
-          ),
-          const SizedBox(height: AppSpace.md),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: AppSpace.md,
-            spacing: AppSpace.md,
-            children: [
+              Expanded(child: identity),
+              const SizedBox(width: AppSpace.xs),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PriceBlock(
-                    cents: product.priceCents,
-                    label: 'Placement from',
-                  ),
-                  const SizedBox(height: AppSpace.xs),
-                  Text(product.linkType, style: context.text.bodySmall),
-                ],
-              ),
-              Wrap(
-                spacing: AppSpace.sm,
-                runSpacing: AppSpace.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  AppButton(
-                    label: 'Details',
-                    variant: AppButtonVariant.text,
-                    size: AppButtonSize.small,
-                    onPressed: onTap,
-                    semanticLabel: 'View details for $domain',
-                  ),
-                  AppButton(
-                    label: 'Plan',
-                    trailingIcon: Icons.arrow_forward_rounded,
-                    size: AppButtonSize.small,
-                    semanticLabel: 'Plan a placement on $domain',
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      onPlan();
-                    },
-                  ),
+                  BookmarkButton(product: product),
+                  plan,
                 ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
+}
+
+class _MetricLabel extends StatelessWidget {
+  const _MetricLabel({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(
+          text: '$label ',
+          style: TextStyle(color: context.palette.textMuted),
+        ),
+        TextSpan(
+          text: value,
+          style: TextStyle(
+            color: context.palette.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+    style: context.text.labelSmall?.copyWith(fontSize: 11),
+  );
 }

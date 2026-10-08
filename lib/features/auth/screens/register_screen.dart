@@ -82,23 +82,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           'Create a customer account to keep your placement plans and order drafts together.',
       errorTitle: "Couldn't create your account",
       errorMessage: authState.errorMessage,
-      footer: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-            child: Text(
-              'Already registered?',
-              style: context.text.bodyMedium,
-              textAlign: TextAlign.center,
+      footer: Builder(
+        builder: (context) => Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+              child: Text(
+                'Already registered?',
+                style: context.text.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: busy ? null : () => context.pushReplacement('/login'),
-            child: const Text('Sign in'),
-          ),
-        ],
+            TextButton(
+              onPressed: busy ? null : () => context.pushReplacement('/login'),
+              child: const Text('Sign in'),
+            ),
+          ],
+        ),
       ),
       children: [
         Form(

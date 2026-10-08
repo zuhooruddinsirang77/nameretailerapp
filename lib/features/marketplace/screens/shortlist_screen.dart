@@ -42,7 +42,7 @@ class _ShortlistScreenState extends ConsumerState<ShortlistScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved publications'),
+        title: const Text('Favorites'),
         actions: [
           if (shortlist.isNotEmpty)
             TextButton(
@@ -57,11 +57,11 @@ class _ShortlistScreenState extends ConsumerState<ShortlistScreen> {
       ),
       body: shortlist.isEmpty
           ? EmptyState(
-              icon: Icons.bookmark_border_rounded,
-              tint: context.palette.warningText,
+              icon: Icons.favorite_border_rounded,
+              tint: context.palette.brandText,
               title: 'Nothing saved yet',
               message:
-                  'Bookmark publications while you browse, then compare them side by side before you plan placements.',
+                  'Tap the heart on a publication to save it here, then compare your favorites before you plan placements.',
               actionLabel: 'Explore the catalog',
               onAction: () => context.go('/marketplace'),
             )

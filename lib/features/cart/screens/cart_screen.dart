@@ -39,7 +39,7 @@ class CartScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Planning cart'),
+        title: Text('Cart (${cartAsync.valueOrNull?.items.length ?? 0})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -77,7 +77,7 @@ class CartScreen extends ConsumerWidget {
               icon: Icons.shopping_bag_outlined,
               title: 'Your cart is empty',
               message:
-                  'Browse the catalog and choose “Plan” on a publication to build your brief and save it here.',
+                  'Browse the catalog and choose â€œPlanâ€ on a publication to build your brief and save it here.',
               actionLabel: 'Browse the catalog',
               onAction: () => context.go('/marketplace'),
             );
@@ -117,21 +117,15 @@ class _CartBody extends ConsumerWidget {
               padding: padding,
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                SectionHeader(
-                  title:
-                      '$count ${count == 1 ? 'planned placement' : 'planned placements'}',
-                  subtitle: 'Review your publications and article briefs',
-                ),
-                const SizedBox(height: AppSpace.md),
                 const InlineMessage(
                   message:
                       'Placements stay in your private planning cart until you check out.',
                   icon: Icons.shield_outlined,
                 ),
-                const SizedBox(height: AppSpace.lg),
+                const SizedBox(height: AppSpace.md),
                 for (var i = 0; i < items.length; i++) ...[
                   _CartItemCard(item: items[i]),
-                  const SizedBox(height: AppSpace.md),
+                  const SizedBox(height: AppSpace.sm),
                 ],
                 const SizedBox(height: AppSpace.sm),
                 AppCard(
@@ -168,7 +162,7 @@ class _CartBody extends ConsumerWidget {
           ),
         ),
         PriceSummaryBar(
-          label: 'Order total · $count ${count == 1 ? 'item' : 'items'}',
+          label: 'Order total Â· $count ${count == 1 ? 'item' : 'items'}',
           cents: totalCents,
           actionLabel: 'Checkout',
           actionIcon: Icons.arrow_forward_rounded,
@@ -225,103 +219,84 @@ class _CartItemCard extends ConsumerWidget {
     final domain = Formatters.cleanDomain(raw);
     final brief = item.brief;
     final hasBrief = brief != null && brief.keyword.isNotEmpty;
-    final writing = (item.writingCents ?? 0) > 0;
 
     return AppCard(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.lg,
-        AppSpace.md,
-        AppSpace.xs,
-        AppSpace.lg,
-      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      raised: true,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              DomainAvatar(domain: raw, size: 40),
+              DomainAvatar(domain: raw, size: 56),
               const SizedBox(width: AppSpace.md),
               Expanded(
-                child: Text(
-                  domain,
-                  style: context.text.titleMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      domain,
+                      style: context.text.titleSmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpace.xs),
+                    Text(
+                      Formatters.formatCurrency(item.totalCents),
+                      style: context.text.titleMedium?.copyWith(
+                        color: p.brandText,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               IconButton(
                 tooltip: 'Remove $domain',
-                icon: Icon(Icons.delete_outline_rounded, color: p.dangerText),
+                icon: Icon(Icons.close_rounded, size: 19, color: p.textMuted),
                 onPressed: () => _remove(context, ref, domain),
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.sm),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpace.md),
-            child: Column(
+          const SizedBox(height: AppSpace.md),
+          Text(
+            item.writingWords == 0
+                ? 'Customer-provided article'
+                : '${item.writingWords}-word writing package',
+            style: context.text.labelSmall?.copyWith(color: p.textSecondary),
+          ),
+          if (hasBrief) ...[
+            const SizedBox(height: AppSpace.xs),
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TagChip(
-                  icon: Icons.article_outlined,
-                  emphasis: item.writingWords != 0,
-                  label: item.writingWords == 0
-                      ? 'Customer-provided article'
-                      : '${item.writingWords}-word writing package',
-                ),
-                if (item.status == 'changed' ||
-                    item.status == 'unavailable') ...[
-                  const SizedBox(height: AppSpace.sm),
-                  InlineMessage(
-                    tone: item.status == 'unavailable'
-                        ? MessageTone.danger
-                        : MessageTone.warning,
-                    message: item.status == 'unavailable'
-                        ? 'This publication is no longer available.'
-                        : 'Pricing or terms changed since you added this.',
+                Icon(Icons.link_rounded, size: 16, color: p.textMuted),
+                const SizedBox(width: AppSpace.xs),
+                Expanded(
+                  child: Text(
+                    brief.promotedUrl.isEmpty
+                        ? '“${brief.keyword}”'
+                        : '“${brief.keyword}” → ${brief.promotedUrl}',
+                    style: context.text.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-                if (hasBrief) ...[
-                  const SizedBox(height: AppSpace.sm),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.link_rounded, size: 16, color: p.textMuted),
-                      const SizedBox(width: AppSpace.xs + 2),
-                      Expanded(
-                        child: Text(
-                          brief.promotedUrl.isEmpty
-                              ? '“${brief.keyword}”'
-                              : '“${brief.keyword}” → ${brief.promotedUrl}',
-                          style: context.text.bodySmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: AppSpace.md),
-                Divider(height: 1, color: p.border),
-                const SizedBox(height: AppSpace.md),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: AppSpace.xs,
-                  spacing: AppSpace.md,
-                  children: [
-                    Text(
-                      writing
-                          ? 'Placement ${Formatters.formatCurrency(item.placementCents)} + writing ${Formatters.formatCurrency(item.writingCents)}'
-                          : 'Placement ${Formatters.formatCurrency(item.placementCents)}',
-                      style: context.text.bodySmall,
-                    ),
-                    PriceBlock(cents: item.totalCents),
-                  ],
                 ),
               ],
             ),
-          ),
+          ],
+          if (item.status == 'changed' || item.status == 'unavailable') ...[
+            const SizedBox(height: AppSpace.sm),
+            InlineMessage(
+              tone: item.status == 'unavailable'
+                  ? MessageTone.danger
+                  : MessageTone.warning,
+              message: item.status == 'unavailable'
+                  ? 'This publication is no longer available.'
+                  : 'Pricing or terms changed since you added this.',
+            ),
+          ],
         ],
       ),
     );

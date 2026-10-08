@@ -7,7 +7,7 @@ import '../../core/theme/app_palette.dart';
 import '../../core/widgets/widgets.dart';
 import '../cart/providers/cart_provider.dart';
 
-/// Hosts the four tab branches. Phones get a Material 3 navigation bar with a
+/// Hosts the five tab branches. Phones get a Material 3 navigation bar with a
 /// pill indicator; tablets / landscape get a navigation rail.
 class BottomNavShell extends ConsumerWidget {
   const BottomNavShell({super.key, required this.navigationShell});
@@ -34,8 +34,13 @@ class BottomNavShell extends ConsumerWidget {
         : Icon(data);
 
     final items = <_Dest>[
-      const _Dest('Discover', Icons.explore_outlined, Icons.explore_rounded),
-      const _Dest('Catalog', Icons.language_outlined, Icons.language_rounded),
+      const _Dest('Home', Icons.home_outlined, Icons.home_rounded),
+      const _Dest('Search', Icons.search_rounded, Icons.search_rounded),
+      const _Dest(
+        'Favorites',
+        Icons.favorite_border_rounded,
+        Icons.favorite_rounded,
+      ),
       _Dest(
         'Cart',
         Icons.shopping_bag_outlined,
@@ -44,7 +49,7 @@ class BottomNavShell extends ConsumerWidget {
         tooltip: 'Planning cart',
       ),
       const _Dest(
-        'Account',
+        'Profile',
         Icons.person_outline_rounded,
         Icons.person_rounded,
       ),

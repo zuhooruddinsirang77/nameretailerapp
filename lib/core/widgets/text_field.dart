@@ -126,6 +126,8 @@ class AppSearchField extends StatelessWidget {
     this.onChanged,
     this.onClear,
     this.focusNode,
+    this.trailing,
+    this.fillColor,
   });
 
   final TextEditingController controller;
@@ -134,6 +136,8 @@ class AppSearchField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onClear;
   final FocusNode? focusNode;
+  final Widget? trailing;
+  final Color? fillColor;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +152,7 @@ class AppSearchField extends StatelessWidget {
           ? source.borderSide
           : const BorderSide();
       return OutlineInputBorder(
-        borderRadius: AppRadius.brLg,
+        borderRadius: AppRadius.brPill,
         borderSide: side.copyWith(
           width: width ?? side.width,
           color: color ?? side.color,
@@ -168,17 +172,20 @@ class AppSearchField extends StatelessWidget {
         scrollPadding: const EdgeInsets.all(AppSpace.xxl * 3),
         decoration: InputDecoration(
           hintText: hint,
+          fillColor: fillColor,
           prefixIcon: const Icon(Icons.search_rounded, size: 22),
-          suffixIcon: value.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear search',
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  onPressed: () {
-                    controller.clear();
-                    onClear?.call();
-                  },
-                ),
+          suffixIcon:
+              trailing ??
+              (value.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () {
+                        controller.clear();
+                        onClear?.call();
+                      },
+                    )),
           border: pill(base.border),
           enabledBorder: pill(base.enabledBorder),
           focusedBorder: pill(base.focusedBorder),

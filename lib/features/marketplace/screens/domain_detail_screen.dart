@@ -27,9 +27,13 @@ class DomainDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Publication'),
+        backgroundColor: context.palette.heroStart,
+        foregroundColor: HeroPanel.on,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: const Text('Publication', style: TextStyle(color: HeroPanel.on)),
         actions: [
-          if (product != null) BookmarkButton(product: product),
+          if (product != null)
+            BookmarkButton(product: product, color: HeroPanel.on),
           const SizedBox(width: AppSpace.xs),
         ],
       ),
@@ -88,6 +92,29 @@ class _DetailBody extends StatelessWidget {
                   product: product,
                   domain: domain,
                   onVisit: _visit,
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PriceBlock(
+                      cents: product.priceCents,
+                      label: 'Placement price',
+                      large: true,
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    AppButton(
+                      label: 'Ask about this publication',
+                      icon: Icons.mail_outline_rounded,
+                      variant: AppButtonVariant.outline,
+                      expand: true,
+                      onPressed: () => context.push(
+                        '/inquiry?domain=${Uri.encodeComponent(domain)}',
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpace.xl),
@@ -185,7 +212,7 @@ class _DetailBody extends StatelessWidget {
                       label: 'Editorial guidelines',
                       value: product.requirements.isNotEmpty
                           ? product.requirements
-                          : 'Standard editorial fit required. Articles must be informational and follow the publisher’s niche standards.',
+                          : 'Standard editorial fit required. Articles must be informational and follow the publisherâ€™s niche standards.',
                     ),
                   ],
                 ),
@@ -238,84 +265,109 @@ class _Header extends StatelessWidget {
   final VoidCallback onVisit;
 
   @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Hero(
-                tag: domainHeroTag(product.id),
-                flightShuttleBuilder: (_, _, _, _, toContext) => Material(
-                  type: MaterialType.transparency,
-                  child: (toContext.widget as Hero).child,
-                ),
-                child: DomainAvatar(domain: product.domain, size: 52),
+  Widget build(BuildContext context) => HeroPanel(
+    mesh: false,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Hero(
+              tag: domainHeroTag(product.id),
+              flightShuttleBuilder: (_, _, _, _, toContext) => Material(
+                type: MaterialType.transparency,
+                child: (toContext.widget as Hero).child,
               ),
-              const SizedBox(width: AppSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.category,
-                      style: context.text.labelMedium?.copyWith(
-                        color: p.brandText,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpace.xs),
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        domain,
-                        style: context.text.headlineMedium,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              child: DomainAvatar(domain: product.domain, size: 40),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.md,
+                  vertical: AppSpace.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: HeroPanel.onFaint,
+                  borderRadius: AppRadius.brPill,
+                  border: Border.all(color: HeroPanel.onFaint),
+                ),
+                child: Text(
+                  '${product.category} publication',
+                  textAlign: TextAlign.center,
+                  style: context.text.labelSmall?.copyWith(color: HeroPanel.on),
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.xl),
+        Semantics(
+          header: true,
+          child: Text(
+            domain,
+            textAlign: TextAlign.center,
+            style: context.text.displayMedium?.copyWith(color: HeroPanel.on),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: AppSpace.lg),
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.sm,
-            children: [
-              TagChip(label: product.country, icon: Icons.public_rounded),
-              TagChip(label: product.language, icon: Icons.translate_rounded),
-              TagChip(label: product.turnaround, icon: Icons.schedule_rounded),
-            ],
+        ),
+        const SizedBox(height: AppSpace.md),
+        Text(
+          'Reach a new audience with a placement on this ${product.category.toLowerCase()} publication.',
+          textAlign: TextAlign.center,
+          style: context.text.bodyMedium?.copyWith(color: HeroPanel.onMuted),
+        ),
+        const SizedBox(height: AppSpace.xl),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpace.lg,
+          runSpacing: AppSpace.md,
+          children: [
+            _HeroAttribute(icon: Icons.public_rounded, label: product.country),
+            _HeroAttribute(icon: Icons.link_rounded, label: product.linkType),
+            _HeroAttribute(
+              icon: Icons.schedule_rounded,
+              label: product.turnaround,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.md),
+        TextButton.icon(
+          onPressed: onVisit,
+          style: TextButton.styleFrom(
+            foregroundColor: HeroPanel.on,
+            minimumSize: const Size(64, AppSpace.minTarget),
           ),
-          const SizedBox(height: AppSpace.lg),
-          _VisitButton(domain: domain, onTap: onVisit),
-        ],
-      ),
-    );
-  }
+          icon: const Icon(Icons.open_in_new_rounded, size: 16),
+          label: const Text('Visit publication'),
+        ),
+      ],
+    ),
+  );
 }
 
-class _VisitButton extends StatelessWidget {
-  const _VisitButton({required this.domain, required this.onTap});
-
-  final String domain;
-  final VoidCallback onTap;
+class _HeroAttribute extends StatelessWidget {
+  const _HeroAttribute({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
 
   @override
-  Widget build(BuildContext context) {
-    return AppButton(
-      label: 'Visit publication',
-      trailingIcon: Icons.open_in_new_rounded,
-      variant: AppButtonVariant.outline,
-      expand: true,
-      semanticLabel: 'Visit $domain in your browser',
-      onPressed: onTap,
-    );
-  }
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const SizedBox(width: AppSpace.xs),
+      Icon(icon, color: HeroPanel.accent, size: 18),
+      const SizedBox(width: AppSpace.xs),
+      Flexible(
+        child: Text(
+          label,
+          style: context.text.labelSmall?.copyWith(color: HeroPanel.onMuted),
+        ),
+      ),
+    ],
+  );
 }
 
 /// Lays children out in equal-height rows of [columns] without fixed aspect

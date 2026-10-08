@@ -71,23 +71,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       subtitle: 'Your placements, briefs and order drafts, in one place.',
       errorTitle: "Couldn't sign you in",
       errorMessage: authState.errorMessage,
-      footer: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-            child: Text(
-              'New to NameRetailer?',
-              style: context.text.bodyMedium,
-              textAlign: TextAlign.center,
+      footer: Builder(
+        builder: (context) => Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+              child: Text(
+                'New to NameRetailer?',
+                style: context.text.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: busy ? null : () => context.pushReplacement('/register'),
-            child: const Text('Create an account'),
-          ),
-        ],
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => context.pushReplacement('/register'),
+              child: const Text('Create an account'),
+            ),
+          ],
+        ),
       ),
       children: [
         Form(

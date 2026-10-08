@@ -42,6 +42,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _paymentPreference = 'stripe';
   bool _saving = false;
   bool _initializedFromDraft = false;
+  int _step = 0;
+  final _scrollController = ScrollController();
 
   static const List<({String code, String name})> _countries = [
     (code: 'US', name: 'United States'),
@@ -58,6 +60,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     for (final c in [
       _emailController,
       _firstNameController,
@@ -113,6 +116,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ? 'Enter a valid billing email'
       : null;
 
+  bool get _billingIsValid =>
+      _validateEmail(_emailController.text) == null &&
+      [
+        _firstNameController,
+        _lastNameController,
+        _streetController,
+        _cityController,
+      ].every((controller) => controller.text.trim().isNotEmpty);
+
   /// Focuses the first field that fails validation so it scrolls into view.
   void _focusFirstError() {
     final checks = <(FocusNode, String?)>[
@@ -130,7 +142,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  void _changeStep(int step) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    HapticFeedback.selectionClick();
+    setState(() => _step = step);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  void _continue() {
+    if (_step == 0 &&
+        (!_formKey.currentState!.validate() || !_billingIsValid)) {
+      HapticFeedback.heavyImpact();
+      _focusFirstError();
+      return;
+    }
+    _changeStep(_step + 1);
+  }
+
   Future<void> _submitCheckout() async {
+    if (!_billingIsValid) {
+      _changeStep(0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _formKey.currentState?.validate();
+        _focusFirstError();
+      });
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       HapticFeedback.heavyImpact();
       _focusFirstError();
@@ -217,7 +255,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Checkout')),
+      appBar: AppBar(
+        title: Text(
+          _step == 1
+              ? 'Payment method'
+              : _step == 2
+              ? 'Review order'
+              : 'Checkout',
+        ),
+        leading: _step > 0
+            ? IconButton(
+                tooltip: 'Previous step',
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: _saving ? null : () => _changeStep(_step - 1),
+              )
+            : null,
+      ),
       body: checkoutAsync.when(
         loading: () => const FormSkeleton(),
         error: (err, _) => ErrorState(
@@ -239,207 +292,276 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: Form(
                   key: _formKey,
                   child: AutofillGroup(
-                    child: ListView(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
                       padding: context.pagePadding(top: AppSpace.sm),
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
-                      children: [
-                        const StepProgress(
-                          steps: [
-                            'Catalog',
-                            'Planning cart',
-                            'Review & billing',
-                          ],
-                          current: 2,
-                        ),
-                        const SizedBox(height: AppSpace.xl),
-                        const InlineMessage(
-                          tone: MessageTone.success,
-                          icon: Icons.verified_user_outlined,
-                          title: 'Save now. Confirm later.',
-                          message:
-                              'No charges will be processed today. Your order details are saved privately for 7 days.',
-                        ),
-                        if (view.issues.isNotEmpty) ...[
-                          const SizedBox(height: AppSpace.md),
-                          InlineMessage(
-                            tone: MessageTone.warning,
-                            title: 'Please review',
-                            message: view.issues.join('\n'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          StepProgress(
+                            steps: ['Details', 'Payment', 'Review'],
+                            current: _step,
                           ),
-                        ],
-                        const SizedBox(height: AppSpace.xl),
-                        _FormSection(
-                          icon: Icons.badge_outlined,
-                          title: 'Billing contact',
-                          children: [
-                            AppTextField(
-                              controller: _emailController,
-                              focusNode: _emailFocus,
-                              label: 'Billing email',
-                              icon: Icons.mail_outline_rounded,
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
-                              autocorrect: false,
-                              validator: _validateEmail,
+                          const SizedBox(height: AppSpace.xl),
+                          if (_step == 2)
+                            const InlineMessage(
+                              tone: MessageTone.success,
+                              icon: Icons.verified_user_outlined,
+                              title: 'Save now. Confirm later.',
+                              message:
+                                  'No charges will be processed today. Your order details are saved privately for 7 days.',
                             ),
-                            _Pair(
-                              first: AppTextField(
-                                controller: _firstNameController,
-                                focusNode: _firstNameFocus,
-                                label: 'First name',
-                                textCapitalization: TextCapitalization.words,
-                                autofillHints: const [AutofillHints.givenName],
-                                validator: (v) => _required(v, 'Required'),
-                              ),
-                              second: AppTextField(
-                                controller: _lastNameController,
-                                focusNode: _lastNameFocus,
-                                label: 'Last name',
-                                textCapitalization: TextCapitalization.words,
-                                autofillHints: const [AutofillHints.familyName],
-                                validator: (v) => _required(v, 'Required'),
-                              ),
+                          if (view.issues.isNotEmpty) ...[
+                            const SizedBox(height: AppSpace.md),
+                            InlineMessage(
+                              tone: MessageTone.warning,
+                              title: 'Please review',
+                              message: view.issues.join('\n'),
                             ),
-                            AppTextField(
-                              controller: _phoneController,
-                              label: 'Phone (optional)',
-                              icon: Icons.phone_outlined,
-                              keyboardType: TextInputType.phone,
-                              autofillHints: const [
-                                AutofillHints.telephoneNumber,
+                          ],
+                          const SizedBox(height: AppSpace.xl),
+                          if (_step == 0) ...[
+                            _FormSection(
+                              icon: Icons.badge_outlined,
+                              title: 'Billing contact',
+                              children: [
+                                AppTextField(
+                                  controller: _emailController,
+                                  focusNode: _emailFocus,
+                                  label: 'Billing email',
+                                  icon: Icons.mail_outline_rounded,
+                                  keyboardType: TextInputType.emailAddress,
+                                  autofillHints: const [AutofillHints.email],
+                                  autocorrect: false,
+                                  validator: _validateEmail,
+                                ),
+                                _Pair(
+                                  first: AppTextField(
+                                    controller: _firstNameController,
+                                    focusNode: _firstNameFocus,
+                                    label: 'First name',
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    autofillHints: const [
+                                      AutofillHints.givenName,
+                                    ],
+                                    validator: (v) => _required(v, 'Required'),
+                                  ),
+                                  second: AppTextField(
+                                    controller: _lastNameController,
+                                    focusNode: _lastNameFocus,
+                                    label: 'Last name',
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    autofillHints: const [
+                                      AutofillHints.familyName,
+                                    ],
+                                    validator: (v) => _required(v, 'Required'),
+                                  ),
+                                ),
+                                AppTextField(
+                                  controller: _phoneController,
+                                  label: 'Phone (optional)',
+                                  icon: Icons.phone_outlined,
+                                  keyboardType: TextInputType.phone,
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber,
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpace.xl),
-                        _FormSection(
-                          icon: Icons.location_on_outlined,
-                          title: 'Billing address',
-                          children: [
-                            DropdownButtonFormField<String>(
-                              initialValue:
-                                  _countries.any(
-                                    (c) => c.code == _selectedCountry,
-                                  )
-                                  ? _selectedCountry
-                                  : null,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Country',
-                                prefixIcon: Icon(
-                                  Icons.public_rounded,
-                                  size: 20,
-                                ),
-                              ),
-                              items: [
-                                for (final c in _countries)
-                                  DropdownMenuItem(
-                                    value: c.code,
-                                    child: Text(
-                                      c.name,
-                                      overflow: TextOverflow.ellipsis,
+                            const SizedBox(height: AppSpace.xl),
+                            _FormSection(
+                              icon: Icons.location_on_outlined,
+                              title: 'Billing address',
+                              children: [
+                                DropdownButtonFormField<String>(
+                                  initialValue:
+                                      _countries.any(
+                                        (c) => c.code == _selectedCountry,
+                                      )
+                                      ? _selectedCountry
+                                      : null,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Country',
+                                    prefixIcon: Icon(
+                                      Icons.public_rounded,
+                                      size: 20,
                                     ),
                                   ),
+                                  items: [
+                                    for (final c in _countries)
+                                      DropdownMenuItem(
+                                        value: c.code,
+                                        child: Text(
+                                          c.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (val) => setState(
+                                    () => _selectedCountry = val ?? 'US',
+                                  ),
+                                ),
+                                AppTextField(
+                                  controller: _streetController,
+                                  focusNode: _streetFocus,
+                                  label: 'Street address',
+                                  textCapitalization: TextCapitalization.words,
+                                  autofillHints: const [
+                                    AutofillHints.streetAddressLine1,
+                                  ],
+                                  validator: (v) =>
+                                      _required(v, 'Enter your street address'),
+                                ),
+                                AppTextField(
+                                  controller: _apartmentController,
+                                  label: 'Suite / apartment (optional)',
+                                  textCapitalization: TextCapitalization.words,
+                                  autofillHints: const [
+                                    AutofillHints.streetAddressLine2,
+                                  ],
+                                ),
+                                _Pair(
+                                  first: AppTextField(
+                                    controller: _cityController,
+                                    focusNode: _cityFocus,
+                                    label: 'City',
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    autofillHints: const [
+                                      AutofillHints.addressCity,
+                                    ],
+                                    validator: (v) => _required(v, 'Required'),
+                                  ),
+                                  second: AppTextField(
+                                    controller: _regionController,
+                                    label: 'State / region',
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    autofillHints: const [
+                                      AutofillHints.addressState,
+                                    ],
+                                  ),
+                                ),
+                                AppTextField(
+                                  controller: _postalCodeController,
+                                  label: 'Postal code (optional)',
+                                  textCapitalization:
+                                      TextCapitalization.characters,
+                                  autofillHints: const [
+                                    AutofillHints.postalCode,
+                                  ],
+                                  textInputAction: TextInputAction.next,
+                                ),
                               ],
-                              onChanged: (val) => setState(
-                                () => _selectedCountry = val ?? 'US',
-                              ),
                             ),
-                            AppTextField(
-                              controller: _streetController,
-                              focusNode: _streetFocus,
-                              label: 'Street address',
-                              textCapitalization: TextCapitalization.words,
-                              autofillHints: const [
-                                AutofillHints.streetAddressLine1,
+                            const SizedBox(height: AppSpace.xl),
+                          ],
+                          if (_step == 1) ...[
+                            _FormSection(
+                              icon: Icons.payments_outlined,
+                              title: 'Payment preference',
+                              subtitle:
+                                  'Choose a preference for your order draft. Payment details are collected when your order is confirmed.',
+                              children: [
+                                ChoiceTile(
+                                  selected: _paymentPreference == 'stripe',
+                                  leadingIcon: Icons.credit_card_rounded,
+                                  title: 'Credit card',
+                                  subtitle: 'Stripe',
+                                  onTap: () => setState(
+                                    () => _paymentPreference = 'stripe',
+                                  ),
+                                ),
+                                ChoiceTile(
+                                  selected: _paymentPreference == 'paypal',
+                                  leadingIcon:
+                                      Icons.account_balance_wallet_outlined,
+                                  title: 'PayPal',
+                                  subtitle: 'PayPal or account balance',
+                                  onTap: () => setState(
+                                    () => _paymentPreference = 'paypal',
+                                  ),
+                                ),
                               ],
-                              validator: (v) =>
-                                  _required(v, 'Enter your street address'),
                             ),
-                            AppTextField(
-                              controller: _apartmentController,
-                              label: 'Suite / apartment (optional)',
-                              textCapitalization: TextCapitalization.words,
-                              autofillHints: const [
-                                AutofillHints.streetAddressLine2,
-                              ],
+                            const SizedBox(height: AppSpace.xl),
+                            const InlineMessage(
+                              icon: Icons.lock_outline_rounded,
+                              message:
+                                  'Your preference is saved with the draft. No payment is taken at this step.',
                             ),
-                            _Pair(
-                              first: AppTextField(
-                                controller: _cityController,
-                                focusNode: _cityFocus,
-                                label: 'City',
-                                textCapitalization: TextCapitalization.words,
-                                autofillHints: const [
-                                  AutofillHints.addressCity,
+                          ],
+                          if (_step == 2) ...[
+                            AppCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Billing details',
+                                          style: context.text.titleMedium,
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => _changeStep(0),
+                                        child: const Text('Edit'),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '${_firstNameController.text} ${_lastNameController.text}',
+                                    style: context.text.titleSmall,
+                                  ),
+                                  const SizedBox(height: AppSpace.xs),
+                                  Text(
+                                    _emailController.text,
+                                    style: context.text.bodySmall,
+                                  ),
+                                  Text(
+                                    '${_streetController.text}, ${_cityController.text}',
+                                    style: context.text.bodySmall,
+                                  ),
+                                  const SizedBox(height: AppSpace.md),
+                                  KeyValueRow(
+                                    label: 'Payment preference',
+                                    value: _paymentPreference == 'paypal'
+                                        ? 'PayPal'
+                                        : 'Credit card',
+                                  ),
                                 ],
-                                validator: (v) => _required(v, 'Required'),
-                              ),
-                              second: AppTextField(
-                                controller: _regionController,
-                                label: 'State / region',
-                                textCapitalization: TextCapitalization.words,
-                                autofillHints: const [
-                                  AutofillHints.addressState,
-                                ],
                               ),
                             ),
-                            AppTextField(
-                              controller: _postalCodeController,
-                              label: 'Postal code (optional)',
-                              textCapitalization: TextCapitalization.characters,
-                              autofillHints: const [AutofillHints.postalCode],
-                              textInputAction: TextInputAction.next,
+                            const SizedBox(height: AppSpace.xl),
+                            _FormSection(
+                              icon: Icons.sticky_note_2_outlined,
+                              title: 'Campaign notes',
+                              children: [
+                                AppTextField(
+                                  controller: _notesController,
+                                  label: 'Notes (optional)',
+                                  hint:
+                                      'Timing, publication preferences, reference numbers…',
+                                  minLines: 3,
+                                  maxLines: 5,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  textInputAction: TextInputAction.done,
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: AppSpace.xl),
+                            _OrderReview(view: view, totalCents: totalCents),
                           ],
-                        ),
-                        const SizedBox(height: AppSpace.xl),
-                        _FormSection(
-                          icon: Icons.payments_outlined,
-                          title: 'Payment preference',
-                          subtitle: 'Saved with your order draft.',
-                          children: [
-                            ChoiceTile(
-                              selected: _paymentPreference == 'stripe',
-                              leadingIcon: Icons.credit_card_rounded,
-                              title: 'Credit card',
-                              subtitle: 'Stripe',
-                              onTap: () =>
-                                  setState(() => _paymentPreference = 'stripe'),
-                            ),
-                            ChoiceTile(
-                              selected: _paymentPreference == 'paypal',
-                              leadingIcon:
-                                  Icons.account_balance_wallet_outlined,
-                              title: 'PayPal',
-                              subtitle: 'PayPal or account balance',
-                              onTap: () =>
-                                  setState(() => _paymentPreference = 'paypal'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpace.xl),
-                        _FormSection(
-                          icon: Icons.sticky_note_2_outlined,
-                          title: 'Campaign notes',
-                          children: [
-                            AppTextField(
-                              controller: _notesController,
-                              label: 'Notes (optional)',
-                              hint:
-                                  'Timing, publication preferences, reference numbers…',
-                              minLines: 3,
-                              maxLines: 5,
-                              textCapitalization: TextCapitalization.sentences,
-                              textInputAction: TextInputAction.done,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpace.xl),
-                        _OrderReview(view: view, totalCents: totalCents),
-                        const SizedBox(height: AppSpace.lg),
-                      ],
+                          const SizedBox(height: AppSpace.lg),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -447,10 +569,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               PriceSummaryBar(
                 label: 'Estimated total',
                 cents: totalCents,
-                actionLabel: 'Save order draft',
-                actionIcon: Icons.check_rounded,
+                actionLabel: _step == 0
+                    ? 'Continue to payment'
+                    : _step == 1
+                    ? 'Review order'
+                    : 'Save order draft',
+                actionIcon: _step == 2
+                    ? Icons.check_rounded
+                    : Icons.arrow_forward_rounded,
                 loading: _saving,
-                onAction: _saving ? null : _submitCheckout,
+                onAction: _saving
+                    ? null
+                    : _step < 2
+                    ? _continue
+                    : _submitCheckout,
               ),
             ],
           );

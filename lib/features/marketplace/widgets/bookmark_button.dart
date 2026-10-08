@@ -11,9 +11,10 @@ import '../providers/shortlist_provider.dart';
 /// Shortlist toggle. 48dp target, animated state, announces its state to
 /// screen readers and tells the user when the oldest saved item was dropped.
 class BookmarkButton extends ConsumerWidget {
-  const BookmarkButton({super.key, required this.product});
+  const BookmarkButton({super.key, required this.product, this.color});
 
   final Product product;
+  final Color? color;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,10 +53,10 @@ class BookmarkButton extends ConsumerWidget {
         transitionBuilder: (child, anim) =>
             ScaleTransition(scale: anim, child: child),
         child: Icon(
-          saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+          saved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           key: ValueKey(saved),
-          color: saved ? p.warning : p.textMuted,
-          size: 26,
+          color: saved ? p.brandText : (color ?? p.textMuted),
+          size: 22,
         ),
       ),
     );

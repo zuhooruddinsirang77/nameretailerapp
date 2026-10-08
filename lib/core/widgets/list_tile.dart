@@ -43,7 +43,7 @@ class AppListTile extends StatelessWidget {
                 onTap!();
               },
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
+          constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpace.lg,
@@ -52,13 +52,11 @@ class AppListTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: destructive ? p.dangerSoft : p.surfaceAlt,
-                    borderRadius:
-                        AppRadius.brSm +
-                        const BorderRadius.all(Radius.circular(2)),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(icon, size: 20, color: tone),
                 ),
@@ -115,7 +113,7 @@ class AppListGroup extends StatelessWidget {
             if (i > 0)
               Divider(
                 height: 1,
-                indent: AppSpace.lg + 40 + AppSpace.md,
+                indent: AppSpace.lg + 32 + AppSpace.md,
                 color: p.border,
               ),
             children[i],

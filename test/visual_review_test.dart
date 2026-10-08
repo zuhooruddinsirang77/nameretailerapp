@@ -9,7 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nameretailer_mobile/features/auth/screens/login_screen.dart';
 import 'package:nameretailer_mobile/features/cart/screens/configure_placement_sheet.dart';
 import 'package:nameretailer_mobile/features/checkout/screens/checkout_screen.dart';
+import 'package:nameretailer_mobile/features/checkout/models/checkout.dart';
+import 'package:nameretailer_mobile/features/checkout/providers/checkout_provider.dart';
 import 'package:nameretailer_mobile/features/home/screens/home_screen.dart';
+import 'package:nameretailer_mobile/features/marketplace/providers/shortlist_provider.dart';
 import 'package:nameretailer_mobile/features/marketplace/screens/domain_detail_screen.dart';
 import 'package:nameretailer_mobile/features/navigation/app_router.dart';
 
@@ -21,6 +24,9 @@ void main() {
   testWidgets(
     'Capture the native design for visual review',
     (tester) async {
+      final previousShadows = debugDisableShadows;
+      debugDisableShadows = false;
+      addTearDown(() => debugDisableShadows = previousShadows);
       final fonts = FontLoader('Manrope');
       for (final weight in [500, 600, 700, 800]) {
         fonts.addFont(rootBundle.load('assets/fonts/Manrope-$weight.ttf'));
@@ -83,6 +89,14 @@ void main() {
         router.go('/marketplace');
         await capture(dark ? 'catalog-dark' : 'catalog');
         if (!dark) {
+          final screenContainer = ProviderScope.containerOf(
+            tester.element(find.byKey(const ValueKey('screen-capture'))),
+          );
+          for (final product in sampleProducts().take(2)) {
+            screenContainer.read(shortlistProvider.notifier).toggle(product);
+          }
+          router.go('/shortlist');
+          await capture('favorites');
           router.go('/profile');
           await capture('account');
           router.go('/cart');
@@ -94,6 +108,8 @@ void main() {
         'sign-in': const LoginScreen(),
         'checkout': const CheckoutScreen(),
       }.entries) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
         await pumpApp(
           tester,
           entry.value,
@@ -103,10 +119,39 @@ void main() {
             reduceMotion: true,
             platform: TargetPlatform.iOS,
           ),
-          overrides: await testOverrides(),
+          overrides: [
+            ...await testOverrides(),
+            if (entry.key == 'checkout')
+              checkoutRepositoryProvider.overrideWithValue(
+                FakeCheckoutRepo(
+                  draft: CheckoutDraft(
+                    version: 1,
+                    cartVersion: 1,
+                    billing: BillingDetails(
+                      email: 'alex@example.com',
+                      firstName: 'Alex',
+                      lastName: 'Morgan',
+                      country: 'PK',
+                      street: '12 Market Street',
+                      city: 'Islamabad',
+                    ),
+                    notes: '',
+                    paymentPreference: 'stripe',
+                  ),
+                ),
+              ),
+          ],
         );
         await capture(entry.key);
+        if (entry.key == 'checkout') {
+          await tester.tap(find.text('Continue to payment'));
+          await capture('payment');
+          await tester.tap(find.text('Review order'));
+          await capture('order-review');
+        }
       }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
       await pumpApp(
         tester,
         Scaffold(

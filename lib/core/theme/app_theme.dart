@@ -190,7 +190,7 @@ class AppTheme {
         backgroundColor: p.surfaceRaised,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: p.brandSoft,
+        indicatorColor: Colors.transparent,
         indicatorShape: const RoundedRectangleBorder(
           borderRadius: AppRadius.brMd,
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
 import '../theme/app_tokens.dart';
+import 'brand_artwork.dart';
 
 /// Deep-ink gradient block with a soft brand glow. Content on it must use
 /// white / [HeroPanel.onMuted] text colours.
@@ -11,6 +12,7 @@ class HeroPanel extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(AppSpace.xl),
     this.radius = AppRadius.xl,
+    this.mesh = true,
   });
 
   static const Color on = Colors.white;
@@ -20,8 +22,10 @@ class HeroPanel extends StatelessWidget {
   static const Color onFaint = Color(0x29FFFFFF); // fills/hairlines
 
   final Widget child;
+  static const Color accent = Color(0xFF00CEEE);
   final EdgeInsetsGeometry padding;
   final double radius;
+  final bool mesh;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +45,9 @@ class HeroPanel extends StatelessWidget {
         borderRadius: br,
         child: Stack(
           children: [
+            Positioned.fill(
+              child: BrandArtwork(mesh: mesh, subtle: !mesh),
+            ),
             // Decorative glow – excluded from semantics and hit testing.
             Positioned(
               top: -70,

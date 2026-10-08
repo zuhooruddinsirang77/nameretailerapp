@@ -3,6 +3,7 @@
 library;
 
 export 'bottom_sheet.dart';
+export 'brand_artwork.dart';
 export 'brand_mark.dart';
 export 'button.dart';
 export 'card.dart';
