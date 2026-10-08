@@ -20,6 +20,15 @@ class Formatters {
     return _numberFormat.format(value);
   }
 
+  static final NumberFormat _compactFormat = NumberFormat.compact();
+
+  /// Short form for tight spaces (12,400 -> 12.4K). Falls back to an em dash.
+  static String formatCompact(int? value) {
+    if (value == null) return '—';
+    if (value.abs() < 1000) return value.toString();
+    return _compactFormat.format(value);
+  }
+
   /// Clean hostnames from URLs (e.g. https://0000yic.com -> 0000yic.com)
   static String cleanDomain(String raw) {
     try {
