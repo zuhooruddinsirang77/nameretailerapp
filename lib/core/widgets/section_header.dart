@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_tokens.dart';
 
-/// Title block for a section: serif title, optional supporting line and an
+/// Title block for a section: compact title, optional supporting line and an
 /// optional trailing action.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -37,7 +37,7 @@ class SectionHeader extends StatelessWidget {
               children: [
                 Semantics(
                   header: true,
-                  child: Text(title, style: context.text.headlineMedium),
+                  child: Text(title, style: context.text.titleLarge),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: AppSpace.xxs),

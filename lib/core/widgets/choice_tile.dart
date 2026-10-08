@@ -16,6 +16,7 @@ class ChoiceTile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.leadingIcon,
+    this.semanticLabel,
   });
 
   final bool selected;
@@ -24,6 +25,7 @@ class ChoiceTile extends StatelessWidget {
   final Widget? trailing;
   final IconData? leadingIcon;
   final VoidCallback onTap;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,7 @@ class ChoiceTile extends StatelessWidget {
       inMutuallyExclusiveGroup: true,
       checked: selected,
       button: true,
-      label: subtitle == null ? title : '$title. $subtitle',
+      label: semanticLabel ?? (subtitle == null ? title : '$title. $subtitle'),
       excludeSemantics: true,
       onTap: onTap,
       child: Pressable(
@@ -60,8 +62,9 @@ class ChoiceTile extends StatelessWidget {
                 onTap();
               },
               child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(minHeight: AppSpace.minTarget + 8),
+                constraints: const BoxConstraints(
+                  minHeight: AppSpace.minTarget + 8,
+                ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpace.md + 2,
@@ -88,14 +91,22 @@ class ChoiceTile extends StatelessWidget {
                               const SizedBox(height: 2),
                               Text(
                                 subtitle!,
-                                style: context.text.bodySmall
-                                    ?.copyWith(color: p.textMuted),
+                                style: context.text.bodySmall?.copyWith(
+                                  color: p.textMuted,
+                                ),
                               ),
+                            ],
+                            if (trailing != null &&
+                                MediaQuery.textScalerOf(context).scale(1) >
+                                    1.3) ...[
+                              const SizedBox(height: AppSpace.sm),
+                              trailing!,
                             ],
                           ],
                         ),
                       ),
-                      if (trailing != null) ...[
+                      if (trailing != null &&
+                          MediaQuery.textScalerOf(context).scale(1) <= 1.3) ...[
                         const SizedBox(width: AppSpace.sm),
                         trailing!,
                       ],

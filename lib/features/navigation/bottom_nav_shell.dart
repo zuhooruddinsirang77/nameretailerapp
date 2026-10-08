@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dimens.dart';
+
+import '../../core/theme/app_palette.dart';
+import '../../core/widgets/widgets.dart';
 import '../cart/providers/cart_provider.dart';
 
+/// Hosts the four tab branches. Phones get a Material 3 navigation bar with a
+/// pill indicator; tablets / landscape get a navigation rail.
 class BottomNavShell extends ConsumerWidget {
+  const BottomNavShell({super.key, required this.navigationShell});
+
   final StatefulNavigationShell navigationShell;
 
-  const BottomNavShell({
-    super.key,
-    required this.navigationShell,
-  });
-
-  void _onTap(int index) {
+  void _onSelect(int index) {
     HapticFeedback.selectionClick();
     navigationShell.goBranch(
       index,
@@ -25,145 +25,113 @@ class BottomNavShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cartCount = ref.watch(cartItemCountProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final currentIndex = navigationShell.currentIndex;
+    final p = context.palette;
+    final size = MediaQuery.sizeOf(context);
+    final useRail = size.width >= 720 && size.height >= 480;
 
-    final navItems = [
-      _NavItemData(
-        label: 'Discover',
-        icon: Icons.explore_outlined,
-        activeIcon: Icons.explore,
+    Widget icon(IconData data, {int badge = 0, String? label}) => badge > 0
+        ? CountBadge(count: badge, semanticLabel: label, child: Icon(data))
+        : Icon(data);
+
+    final items = <_Dest>[
+      const _Dest('Discover', Icons.explore_outlined, Icons.explore_rounded),
+      const _Dest('Catalog', Icons.language_outlined, Icons.language_rounded),
+      _Dest(
+        'Cart',
+        Icons.shopping_bag_outlined,
+        Icons.shopping_bag_rounded,
+        badge: cartCount,
+        tooltip: 'Planning cart',
       ),
-      _NavItemData(
-        label: 'Catalog',
-        icon: Icons.language_outlined,
-        activeIcon: Icons.language,
-      ),
-      _NavItemData(
-        label: 'Planning Cart',
-        icon: Icons.shopping_bag_outlined,
-        activeIcon: Icons.shopping_bag,
-        badgeCount: cartCount,
-      ),
-      _NavItemData(
-        label: 'Account',
-        icon: Icons.person_outline_rounded,
-        activeIcon: Icons.person_rounded,
+      const _Dest(
+        'Account',
+        Icons.person_outline_rounded,
+        Icons.person_rounded,
       ),
     ];
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
-              width: 1,
+    if (useRail) {
+      return Scaffold(
+        body: Row(
+          children: [
+            SafeArea(
+              child: NavigationRail(
+                selectedIndex: navigationShell.currentIndex,
+                onDestinationSelected: _onSelect,
+                labelType: NavigationRailLabelType.all,
+                minWidth: 88,
+                destinations: [
+                  for (final d in items)
+                    NavigationRailDestination(
+                      icon: icon(
+                        d.icon,
+                        badge: d.badge,
+                        label: '${d.badge} items in cart',
+                      ),
+                      selectedIcon: icon(
+                        d.selectedIcon,
+                        badge: d.badge,
+                        label: '${d.badge} items in cart',
+                      ),
+                      label: Text(d.label),
+                    ),
+                ],
+              ),
             ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.3)
-                  : Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, -3),
-            ),
+            VerticalDivider(width: 1, color: p.border),
+            Expanded(child: navigationShell),
           ],
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.space12,
-              vertical: AppDimens.space6,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(navItems.length, (index) {
-                final item = navItems[index];
-                final isSelected = currentIndex == index;
+      );
+    }
 
-                return Expanded(
-                  child: InkWell(
-                    onTap: () => _onTap(index),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isDark
-                                ? AppColors.accent.withValues(alpha: 0.15)
-                                : AppColors.accent.withValues(alpha: 0.08))
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Badge(
-                            isLabelVisible: (item.badgeCount ?? 0) > 0,
-                            label: Text(
-                              '${item.badgeCount}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                            backgroundColor: AppColors.accentEmerald,
-                            child: Icon(
-                              isSelected ? item.activeIcon : item.icon,
-                              size: 22,
-                              color: isSelected
-                                  ? AppColors.accent
-                                  : (isDark
-                                      ? AppColors.textMutedDark
-                                      : AppColors.textMutedLight),
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected
-                                  ? AppColors.accent
-                                  : (isDark
-                                      ? AppColors.textMutedDark
-                                      : AppColors.textSecondaryLight),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
+    return Scaffold(
+      body: navigationShell,
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: p.border)),
+        ),
+        child: NavigationBar(
+          animationDuration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          selectedIndex: navigationShell.currentIndex,
+          onDestinationSelected: _onSelect,
+          destinations: [
+            for (final d in items)
+              NavigationDestination(
+                icon: icon(
+                  d.icon,
+                  badge: d.badge,
+                  label: '${d.badge} items in cart',
+                ),
+                selectedIcon: icon(
+                  d.selectedIcon,
+                  badge: d.badge,
+                  label: '${d.badge} items in cart',
+                ),
+                label: d.label,
+                tooltip: d.tooltip ?? d.label,
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _NavItemData {
+class _Dest {
+  const _Dest(
+    this.label,
+    this.icon,
+    this.selectedIcon, {
+    this.badge = 0,
+    this.tooltip,
+  });
+
   final String label;
   final IconData icon;
-  final IconData activeIcon;
-  final int? badgeCount;
-
-  _NavItemData({
-    required this.label,
-    required this.icon,
-    required this.activeIcon,
-    this.badgeCount,
-  });
+  final IconData selectedIcon;
+  final int badge;
+  final String? tooltip;
 }

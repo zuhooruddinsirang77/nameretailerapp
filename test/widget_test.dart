@@ -8,7 +8,9 @@ import 'package:nameretailer_mobile/features/home/screens/home_screen.dart';
 import 'package:nameretailer_mobile/features/marketplace/models/product.dart';
 
 void main() {
-  testWidgets('HomeScreen smoke test with mock provider', (WidgetTester tester) async {
+  testWidgets('HomeScreen smoke test with mock provider', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final sharedPreferences = await SharedPreferences.getInstance();
 

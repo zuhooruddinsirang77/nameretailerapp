@@ -33,12 +33,7 @@ void main() {
         'priceCents': 15000,
         'currency': 'USD',
         'status': 'active',
-        'metrics': {
-          'da': 55,
-          'dr': 62,
-          'traffic': 25000,
-          'spamScore': 2,
-        },
+        'metrics': {'da': 55, 'dr': 62, 'traffic': 25000, 'spamScore': 2},
         'linkType': '02 DoFollow links',
         'turnaround': '4 days',
         'requirements': 'No casino or gambling links',
@@ -101,7 +96,7 @@ void main() {
             'turnaround': '4 days',
             'requirements': '',
             'version': 2,
-          }
+          },
         ],
         'total': 56005,
         'page': 1,

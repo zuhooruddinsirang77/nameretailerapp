@@ -81,9 +81,11 @@ class _AppTextFieldState extends State<AppTextField> {
       focusNode: widget.focusNode,
       enabled: widget.enabled,
       obscureText: widget.isPassword && _obscured,
-      keyboardType: widget.keyboardType ??
+      keyboardType:
+          widget.keyboardType ??
           (multiline ? TextInputType.multiline : TextInputType.text),
-      textInputAction: widget.textInputAction ??
+      textInputAction:
+          widget.textInputAction ??
           (multiline ? TextInputAction.newline : TextInputAction.next),
       autofillHints: widget.autofillHints,
       validator: widget.validator,
@@ -114,7 +116,7 @@ class _AppTextFieldState extends State<AppTextField> {
   }
 }
 
-/// Pill search box used on Home and the catalogue.
+/// Native search well used on Home, the catalogue and option pickers.
 class AppSearchField extends StatelessWidget {
   const AppSearchField({
     super.key,
@@ -137,11 +139,20 @@ class AppSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final base = theme.inputDecorationTheme;
-    OutlineInputBorder pill(InputBorder? source, {double? width, Color? color}) {
-      final side = source is OutlineInputBorder ? source.borderSide : const BorderSide();
+    OutlineInputBorder pill(
+      InputBorder? source, {
+      double? width,
+      Color? color,
+    }) {
+      final side = source is OutlineInputBorder
+          ? source.borderSide
+          : const BorderSide();
       return OutlineInputBorder(
-        borderRadius: AppRadius.brPill,
-        borderSide: side.copyWith(width: width ?? side.width, color: color ?? side.color),
+        borderRadius: AppRadius.brLg,
+        borderSide: side.copyWith(
+          width: width ?? side.width,
+          color: color ?? side.color,
+        ),
       );
     }
 
@@ -154,6 +165,7 @@ class AppSearchField extends StatelessWidget {
         onSubmitted: onSubmitted,
         onChanged: onChanged,
         style: theme.textTheme.bodyLarge,
+        scrollPadding: const EdgeInsets.all(AppSpace.xxl * 3),
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: const Icon(Icons.search_rounded, size: 22),

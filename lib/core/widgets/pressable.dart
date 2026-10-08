@@ -31,7 +31,8 @@ class _PressableState extends State<Pressable> {
 
   @override
   Widget build(BuildContext context) {
-    final animate = !context.mounted || !MediaQuery.disableAnimationsOf(context);
+    final animate =
+        !context.mounted || !MediaQuery.disableAnimationsOf(context);
     return Listener(
       behavior: widget.behavior,
       onPointerDown: (_) => _set(true),
@@ -39,7 +40,7 @@ class _PressableState extends State<Pressable> {
       onPointerCancel: (_) => _set(false),
       child: AnimatedScale(
         scale: (_down && animate) ? widget.scale : 1,
-        duration: AppMotion.fast,
+        duration: AppMotion.of(context, AppMotion.fast),
         curve: AppMotion.standard,
         child: widget.child,
       ),

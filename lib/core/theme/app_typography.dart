@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Type system: **Fraunces** (soft serif) for display moments and **Manrope**
-/// for everything functional. Both are bundled as static weights.
+/// Manrope keeps headings, values and controls consistent with a native UI.
 ///
 /// Minimum size is 11sp. All sizes scale with the system text scaler.
 abstract final class AppTypography {
-  static const String display = 'Fraunces';
+  static const String display = 'Manrope';
   static const String ui = 'Manrope';
 
   static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
@@ -90,42 +89,70 @@ abstract final class AppTypography {
       double? letterSpacing,
       Color? color,
       List<FontFeature>? features,
-    }) =>
-        TextStyle(
-          fontFamily: family,
-          fontSize: size,
-          fontWeight: weight,
-          height: height,
-          letterSpacing: letterSpacing,
-          color: color ?? primary,
-          fontFeatures: features,
-        );
+    }) => TextStyle(
+      fontFamily: family,
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: letterSpacing,
+      color: color ?? primary,
+      fontFeatures: features,
+    );
 
     return TextTheme(
-      // Display moments (hero, big numbers) – serif
-      displayLarge: s(display, 36, FontWeight.w600,
-          height: 1.12, letterSpacing: -0.9),
-      displayMedium: s(display, 30, FontWeight.w600,
-          height: 1.15, letterSpacing: -0.6),
-      displaySmall: s(display, 26, FontWeight.w600,
-          height: 1.18, letterSpacing: -0.4),
-      headlineLarge: s(display, 24, FontWeight.w600,
-          height: 1.2, letterSpacing: -0.3),
-      headlineMedium: s(display, 20, FontWeight.w600,
-          height: 1.25, letterSpacing: -0.2),
-      headlineSmall: s(display, 18, FontWeight.w600, height: 1.3),
+      // Compact display moments; functional screens use the title scale.
+      displayLarge: s(
+        display,
+        32,
+        FontWeight.w800,
+        height: 1.2,
+        letterSpacing: -0.8,
+      ),
+      displayMedium: s(
+        display,
+        28,
+        FontWeight.w800,
+        height: 1.2,
+        letterSpacing: -0.6,
+      ),
+      displaySmall: s(
+        display,
+        24,
+        FontWeight.w800,
+        height: 1.25,
+        letterSpacing: -0.4,
+      ),
+      headlineLarge: s(
+        display,
+        24,
+        FontWeight.w800,
+        height: 1.2,
+        letterSpacing: -0.3,
+      ),
+      headlineMedium: s(
+        display,
+        20,
+        FontWeight.w700,
+        height: 1.25,
+        letterSpacing: -0.2,
+      ),
+      headlineSmall: s(ui, 18, FontWeight.w700, height: 1.3),
       // UI titles – sans
       titleLarge: s(ui, 18, FontWeight.w800, height: 1.3, letterSpacing: -0.2),
-      titleMedium:
-          s(ui, 15, FontWeight.w700, height: 1.35, letterSpacing: -0.1),
-      titleSmall: s(ui, 13.5, FontWeight.w700, height: 1.35),
+      titleMedium: s(
+        ui,
+        15,
+        FontWeight.w700,
+        height: 1.35,
+        letterSpacing: -0.1,
+      ),
+      titleSmall: s(ui, 14, FontWeight.w700, height: 1.35),
       bodyLarge: s(ui, 16, FontWeight.w500, height: 1.5),
       bodyMedium: s(ui, 14, FontWeight.w500, height: 1.45, color: secondary),
-      bodySmall: s(ui, 12.5, FontWeight.w500, height: 1.4, color: secondary),
+      bodySmall: s(ui, 13, FontWeight.w500, height: 1.45, color: secondary),
       labelLarge: s(ui, 14, FontWeight.w700, height: 1.2),
       labelMedium: s(ui, 12, FontWeight.w700, height: 1.2),
-      labelSmall:
-          s(ui, 11, FontWeight.w700, height: 1.2, letterSpacing: 0.5),
+      labelSmall: s(ui, 12, FontWeight.w600, height: 1.3, letterSpacing: 0.2),
     );
   }
 }

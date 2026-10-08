@@ -4,6 +4,9 @@ import '../../../core/storage/storage_service.dart';
 import '../models/product.dart';
 
 class ShortlistNotifier extends StateNotifier<List<Product>> {
+  /// Maximum number of saved publications (oldest is dropped beyond this).
+  static const int limit = 8;
+
   final StorageService _storageService;
 
   ShortlistNotifier(this._storageService) : super([]) {
@@ -22,7 +25,7 @@ class ShortlistNotifier extends StateNotifier<List<Product>> {
     if (isShortlisted(product.id)) {
       state = state.where((item) => item.id != product.id).toList();
     } else {
-      if (state.length >= 8) {
+      if (state.length >= limit) {
         // limit to 8 for comparison focus
         state = [...state.sublist(1), product];
       } else {

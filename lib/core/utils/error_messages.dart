@@ -21,7 +21,8 @@ FriendlyError describeError(Object? error) {
   final raw = error is ApiException ? error.message : error?.toString() ?? '';
   final lower = raw.toLowerCase();
 
-  final looksOffline = lower.contains('timed out') ||
+  final looksOffline =
+      lower.contains('timed out') ||
       lower.contains('unable to connect') ||
       lower.contains('connection') ||
       lower.contains('socket') ||

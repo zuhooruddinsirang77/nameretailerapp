@@ -23,7 +23,10 @@ class DomainAvatar extends StatelessWidget {
       p.warningText,
       p.brandText,
     ];
-    final hash = clean.codeUnits.fold<int>(7, (h, c) => (h * 31 + c) & 0x7fffffff);
+    final hash = clean.codeUnits.fold<int>(
+      7,
+      (h, c) => (h * 31 + c) & 0x7fffffff,
+    );
     final color = palette[hash % palette.length];
     final letter = clean.isEmpty ? '?' : clean.characters.first.toUpperCase();
 
@@ -33,7 +36,12 @@ class DomainAvatar extends StatelessWidget {
         height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: p.tint(color, light: 0.12, dark: 0.2),
+          // Solid (blended over the surface) so it reads the same on any
+          // background, including the dark detail hero and during Hero flights.
+          color: Color.alphaBlend(
+            p.tint(color, light: 0.12, dark: 0.2),
+            p.surface,
+          ),
           borderRadius: BorderRadius.circular(size * 0.3),
           border: Border.all(color: color.withValues(alpha: 0.25)),
         ),

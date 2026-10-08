@@ -56,7 +56,9 @@ class AppListTile extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: destructive ? p.dangerSoft : p.surfaceAlt,
-                    borderRadius: AppRadius.brSm + const BorderRadius.all(Radius.circular(2)),
+                    borderRadius:
+                        AppRadius.brSm +
+                        const BorderRadius.all(Radius.circular(2)),
                   ),
                   child: Icon(icon, size: 20, color: tone),
                 ),
@@ -75,8 +77,9 @@ class AppListTile extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          style: context.text.bodySmall
-                              ?.copyWith(color: p.textMuted),
+                          style: context.text.bodySmall?.copyWith(
+                            color: p.textMuted,
+                          ),
                         ),
                       ],
                     ],

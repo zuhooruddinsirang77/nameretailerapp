@@ -36,6 +36,11 @@ extension PagePadding on BuildContext {
   }) {
     final w = MediaQuery.sizeOf(this).width;
     final side = ((w - maxWidth) / 2).clamp(AppSpace.gutter, double.infinity);
-    return EdgeInsets.fromLTRB(side, top, side, bottom);
+    return EdgeInsets.fromLTRB(
+      side,
+      top,
+      side,
+      bottom + MediaQuery.paddingOf(this).bottom,
+    );
   }
 }

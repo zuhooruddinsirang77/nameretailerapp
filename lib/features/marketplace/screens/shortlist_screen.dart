@@ -2,119 +2,171 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dimens.dart';
-import '../../../core/widgets/app_empty_state.dart';
+
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../cart/screens/configure_placement_sheet.dart';
 import '../providers/shortlist_provider.dart';
+import '../widgets/compare_table.dart';
 import '../widgets/product_card.dart';
 
-class ShortlistScreen extends ConsumerWidget {
+class ShortlistScreen extends ConsumerStatefulWidget {
   const ShortlistScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShortlistScreen> createState() => _ShortlistScreenState();
+}
+
+class _ShortlistScreenState extends ConsumerState<ShortlistScreen> {
+  bool _compare = false;
+
+  Future<void> _confirmClear() async {
+    final ok = await showConfirmDialog(
+      context,
+      icon: Icons.bookmark_remove_outlined,
+      title: 'Clear your shortlist?',
+      message: 'All saved publications will be removed. This can’t be undone.',
+      confirmLabel: 'Clear all',
+      destructive: true,
+    );
+    if (ok) ref.read(shortlistProvider.notifier).clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final shortlist = ref.watch(shortlistProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canCompare = shortlist.length >= 2;
+    final showCompare = _compare && canCompare;
+    final padding = context.pagePadding(top: AppSpace.sm);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved Publications'),
+        title: const Text('Saved publications'),
         actions: [
           if (shortlist.isNotEmpty)
             TextButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Clear Shortlist?'),
-                    content: const Text(
-                      'Are you sure you want to remove all saved publications from your shortlist?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-                        onPressed: () {
-                          HapticFeedback.mediumImpact();
-                          Navigator.of(ctx).pop();
-                          ref.read(shortlistProvider.notifier).clear();
-                        },
-                        child: const Text('Clear All'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text(
-                'Clear All',
-                style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.error),
+              onPressed: _confirmClear,
+              style: TextButton.styleFrom(
+                foregroundColor: context.palette.dangerText,
               ),
+              child: const Text('Clear all'),
             ),
+          const SizedBox(width: AppSpace.xs),
         ],
       ),
       body: shortlist.isEmpty
-          ? AppEmptyState(
+          ? EmptyState(
               icon: Icons.bookmark_border_rounded,
-              iconColor: AppColors.accentAmber,
-              title: 'Your Shortlist is Empty',
-              description:
-                  'Bookmark high-authority publications while browsing the marketplace to review and plan placements together.',
-              actionText: 'Explore Catalog',
-              onActionTap: () => context.go('/marketplace'),
+              tint: context.palette.warningText,
+              title: 'Nothing saved yet',
+              message:
+                  'Bookmark publications while you browse, then compare them side by side before you plan placements.',
+              actionLabel: 'Explore the catalog',
+              onAction: () => context.go('/marketplace'),
             )
-          : ListView(
-              padding: const EdgeInsets.all(AppDimens.space16),
+          : Column(
               children: [
-                // Info Summary Banner
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentAmber.withValues(alpha: isDark ? 0.15 : 0.08),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(
-                      color: AppColors.accentAmber.withValues(alpha: 0.25),
-                      width: 1,
+                ContentWidth(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      AppSpace.sm,
+                      AppSpace.gutter,
+                      AppSpace.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${shortlist.length} of ${ShortlistNotifier.limit} publications saved',
+                                style: context.text.titleMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpace.sm),
+                        SegmentedButton<bool>(
+                          showSelectedIcon: false,
+                          style: SegmentedButton.styleFrom(
+                            minimumSize: const Size(0, AppSpace.minTarget),
+                          ),
+                          segments: [
+                            const ButtonSegment(
+                              value: false,
+                              icon: Icon(Icons.view_agenda_outlined),
+                              label: Text('List'),
+                            ),
+                            ButtonSegment(
+                              value: true,
+                              enabled: canCompare,
+                              icon: const Icon(Icons.compare_arrows_rounded),
+                              label: const Text('Compare'),
+                            ),
+                          ],
+                          selected: {showCompare},
+                          onSelectionChanged: (s) {
+                            HapticFeedback.selectionClick();
+                            setState(() => _compare = s.first);
+                          },
+                        ),
+                        if (!canCompare) ...[
+                          const SizedBox(height: AppSpace.sm),
+                          Text(
+                            'Save at least two publications to compare them.',
+                            style: context.text.bodySmall?.copyWith(
+                              color: context.palette.textMuted,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bookmark_added_rounded, color: AppColors.accentAmber, size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${shortlist.length} publication${shortlist.length > 1 ? 's' : ''} saved for planning & comparison.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.of(context),
+                    child: showCompare
+                        ? ListView(
+                            key: const ValueKey('compare'),
+                            padding: const EdgeInsets.only(bottom: AppSpace.xl),
+                            children: [
+                              ContentWidth(
+                                maxWidth: 960,
+                                child: CompareTable(
+                                  products: shortlist,
+                                  onRemove: (p) => ref
+                                      .read(shortlistProvider.notifier)
+                                      .remove(p.id),
+                                  onOpen: (p) =>
+                                      context.push('/domain/${p.id}'),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            key: const ValueKey('list'),
+                            padding: padding.copyWith(top: AppSpace.xs),
+                            itemCount: shortlist.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: AppSpace.md),
+                            itemBuilder: (context, i) {
+                              final product = shortlist[i];
+                              return ProductCard(
+                                key: ValueKey(product.id),
+                                product: product,
+                                onTap: () =>
+                                    context.push('/domain/${product.id}'),
+                                onPlan: () =>
+                                    showPlacementSheet(context, product),
+                              );
+                            },
                           ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-
-                // Saved Cards
-                ...shortlist.map(
-                  (product) => ProductCard(
-                    product: product,
-                    onTap: () => context.push('/domain/${product.id}'),
-                    onPlan: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => ConfigurePlacementSheet(product: product),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
               ],
             ),
     );

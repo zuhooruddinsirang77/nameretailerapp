@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dimens.dart';
-import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/app_section_header.dart';
+
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../marketplace/providers/shortlist_provider.dart';
@@ -19,404 +19,364 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  void _editNameDialog(String currentName) {
-    final controller = TextEditingController(text: currentName);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update Customer Name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Full Customer Name'),
-          maxLength: 120,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () async {
-              final newName = controller.text.trim();
-              if (newName.isNotEmpty) {
-                Navigator.of(ctx).pop();
-                HapticFeedback.lightImpact();
-                final success = await ref
-                    .read(authStateProvider.notifier)
-                    .updateProfile(newName);
-                if (mounted && success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Account profile updated successfully.'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      ),
+  Future<void> _editName(String currentName) async {
+    final newName = await showAppSheetRaw<String>(
+      context,
+      builder: (_) => _EditNameSheet(initial: currentName),
     );
+    if (newName == null || newName.isEmpty || newName == currentName) return;
+    HapticFeedback.lightImpact();
+    final ok = await ref
+        .read(authStateProvider.notifier)
+        .updateProfile(newName);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Your name was updated.'
+                : "We couldn't update your name. Please try again.",
+          ),
+        ),
+      );
+  }
+
+  Future<void> _signOut() async {
+    final ok = await showConfirmDialog(
+      context,
+      icon: Icons.logout_rounded,
+      title: 'Sign out?',
+      message:
+          'Your planning cart stays safely attached to your account for when you sign back in.',
+      confirmLabel: 'Sign out',
+      destructive: true,
+    );
+    if (ok) {
+      await ref.read(authStateProvider.notifier).logout();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-    final shortlistCount = ref.watch(shortlistProvider).length;
+    final user = ref.watch(authStateProvider.select((s) => s.user));
+    final shortlistCount = ref.watch(shortlistProvider.select((l) => l.length));
     final cartCount = ref.watch(cartItemCountProvider);
-    final user = authState.user;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final p = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Customer Dashboard')),
+      appBar: AppBar(title: const Text('Account')),
       body: ListView(
-        padding: const EdgeInsets.all(AppDimens.space16),
+        padding: context.pagePadding(top: AppSpace.sm),
         children: [
-          // Executive Customer Profile Header Card
-          Container(
-            padding: const EdgeInsets.all(AppDimens.space20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [const Color(0xFF131D33), const Color(0xFF0F172A)]
-                    : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(AppDimens.radiusXl),
-              boxShadow: AppDimens.shadowCard(isDark),
-            ),
-            child: Column(
+          _Header(
+            name: user?.name,
+            email: user?.email,
+            onEdit: user == null ? null : () => _editName(user.name),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppColors.accent,
-                      child: Text(
-                        user != null && user.name.isNotEmpty
-                            ? user.name.substring(0, 1).toUpperCase()
-                            : 'G',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  user?.name ?? 'Guest Customer',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: -0.3,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (user != null) ...[
-                                const SizedBox(width: 6),
-                                const Icon(Icons.verified, color: AppColors.accentEmerald, size: 16),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            user?.email ?? 'Sign in to access saved placements',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: Colors.white.withValues(alpha: 0.75),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (user != null) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white24, height: 1),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _editNameDialog(user.name),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white30),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          minimumSize: Size.zero,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        icon: const Icon(Icons.edit_outlined, size: 14),
-                        label: const Text('Edit Name', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
+                Expanded(
+                  child: _StatCard(
+                    value: '$shortlistCount',
+                    label: 'Saved',
+                    icon: Icons.bookmark_rounded,
+                    color: p.warningText,
+                    onTap: () => context.push('/shortlist'),
                   ),
-                ],
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: _StatCard(
+                    value: '$cartCount',
+                    label: 'In cart',
+                    icon: Icons.shopping_bag_rounded,
+                    color: p.successText,
+                    onTap: () => context.go('/cart'),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Activity Stats Quick Row
-          Row(
+          const SizedBox(height: AppSpace.xl),
+          const SectionHeader(title: 'Your activity'),
+          const SizedBox(height: AppSpace.md),
+          AppListGroup(
             children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'Saved Shortlist',
-                  value: '$shortlistCount',
-                  icon: Icons.bookmark_added_rounded,
-                  color: AppColors.accentAmber,
-                  isDark: isDark,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    context.push('/shortlist');
-                  },
-                ),
+              AppListTile(
+                icon: Icons.bookmark_outline_rounded,
+                title: 'Saved publications',
+                subtitle: '$shortlistCount saved · compare side by side',
+                onTap: () => context.push('/shortlist'),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'Planning Cart',
-                  value: '$cartCount',
-                  icon: Icons.shopping_bag_rounded,
-                  color: AppColors.accentEmerald,
-                  isDark: isDark,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    context.go('/cart');
-                  },
-                ),
+              AppListTile(
+                icon: Icons.shopping_bag_outlined,
+                title: 'Planning cart',
+                subtitle: 'Review briefs, anchors and writing choices',
+                onTap: () => context.go('/cart'),
+              ),
+              AppListTile(
+                icon: Icons.mail_outline_rounded,
+                title: 'Send an inquiry',
+                subtitle: 'Custom niches or high-volume orders',
+                onTap: () => context.push('/inquiry'),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Section 1: Customer Activity
-          AppSectionHeader(
-            title: 'Customer Placements',
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          const SizedBox(height: AppSpace.xl),
+          const SectionHeader(title: 'Resources'),
+          const SizedBox(height: AppSpace.md),
+          AppListGroup(
+            children: [
+              AppListTile(
+                icon: Icons.help_outline_rounded,
+                title: 'Buyer guide & FAQ',
+                subtitle: 'Understand DR, DA and placement scope',
+                onTap: () => context.push('/help'),
+              ),
+              AppListTile(
+                icon: Icons.info_outline_rounded,
+                title: 'About NameRetailer',
+                subtitle: 'Who we are and how placements work',
+                onTap: () => context.push('/about'),
+              ),
+            ],
           ),
-          AppCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _buildMenuTile(
-                  icon: Icons.bookmark_outline_rounded,
-                  title: 'Publication Shortlist',
-                  subtitle: '$shortlistCount publications saved for comparison',
-                  onTap: () => context.push('/shortlist'),
-                  isDark: isDark,
-                ),
-                Divider(height: 1, color: isDark ? AppColors.cardBorderDark : AppColors.dividerLight),
-                _buildMenuTile(
-                  icon: Icons.shopping_bag_outlined,
-                  title: 'Planning Cart & Drafts',
-                  subtitle: 'Review configured anchor text & writing choices',
-                  onTap: () => context.go('/cart'),
-                  isDark: isDark,
-                ),
-                Divider(height: 1, color: isDark ? AppColors.cardBorderDark : AppColors.dividerLight),
-                _buildMenuTile(
-                  icon: Icons.mail_outline_rounded,
-                  title: 'Placement Inquiries',
-                  subtitle: 'Direct questions on niche topics or custom requirements',
-                  onTap: () => context.push('/inquiry'),
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Section 2: Marketplace Guides & Transparency
-          AppSectionHeader(
-            title: 'Resources & Information',
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          ),
-          AppCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _buildMenuTile(
-                  icon: Icons.help_outline_rounded,
-                  title: 'Buyer Essentials & SEO Guide',
-                  subtitle: 'Understanding DR, DA, and placement scope',
-                  onTap: () => context.push('/help'),
-                  isDark: isDark,
-                ),
-                Divider(height: 1, color: isDark ? AppColors.cardBorderDark : AppColors.dividerLight),
-                _buildMenuTile(
-                  icon: Icons.info_outline_rounded,
-                  title: 'About NameRetailer',
-                  subtitle: 'Marketplace platform overview and terms',
-                  onTap: () => context.push('/about'),
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Account Action: Sign In or Sign Out
+          const SizedBox(height: AppSpace.xl),
           if (user != null)
             AppButton(
-              text: 'Sign Out of Customer Account',
+              label: 'Sign out',
               icon: Icons.logout_rounded,
               variant: AppButtonVariant.outline,
               size: AppButtonSize.large,
-              isFullWidth: true,
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Sign Out'),
-                    content: const Text(
-                      'Are you sure you want to sign out? Your saved planning cart will remain safely attached to your account upon signing back in.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Sign Out'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  HapticFeedback.mediumImpact();
-                  await ref.read(authStateProvider.notifier).logout();
-                }
-              },
+              expand: true,
+              onPressed: _signOut,
             )
-          else
+          else ...[
             AppButton(
-              text: 'Sign In to Customer Account',
+              label: 'Sign in',
               icon: Icons.login_rounded,
               size: AppButtonSize.large,
-              isFullWidth: true,
+              expand: true,
               onPressed: () => context.push('/login'),
             ),
-          const SizedBox(height: 24),
+            const SizedBox(height: AppSpace.sm),
+            AppButton(
+              label: 'Create an account',
+              variant: AppButtonVariant.text,
+              expand: true,
+              onPressed: () => context.push('/register'),
+            ),
+          ],
+          const SizedBox(height: AppSpace.lg),
         ],
       ),
     );
   }
+}
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDarkCard : Colors.white,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(
-          color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
-          width: 1,
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.name,
+    required this.email,
+    required this.onEdit,
+  });
+
+  final String? name;
+  final String? email;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final signedIn = name != null;
+    final initial = signedIn && name!.isNotEmpty
+        ? name!.characters.first.toUpperCase()
+        : null;
+
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name ?? 'Guest',
+          style: context.text.titleLarge,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        boxShadow: AppDimens.shadowSubtle(isDark),
+        const SizedBox(height: AppSpace.xs),
+        Text(
+          email ?? 'Sign in to sync your cart and drafts',
+          style: context.text.bodySmall,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+    final avatar = Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: p.brandSoft,
+        borderRadius: AppRadius.brLg,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimens.space14),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      value,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: isDark ? AppColors.textMutedDark : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+      child: initial == null
+          ? Icon(Icons.person_outline_rounded, color: p.brandText)
+          : Text(
+              initial,
+              style: context.text.headlineLarge?.copyWith(color: p.brandText),
             ),
-          ),
+    );
+    final edit = onEdit == null
+        ? const SizedBox.shrink()
+        : AppIconButton(
+            icon: Icons.edit_outlined,
+            tooltip: 'Edit name',
+            onPressed: onEdit,
+          );
+    return AppCard(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 280 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.4) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(children: [avatar, const Spacer(), edit]),
+                const SizedBox(height: AppSpace.md),
+                identity,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              avatar,
+              const SizedBox(width: AppSpace.md),
+              Expanded(child: identity),
+              edit,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Semantics(
+      button: true,
+      label: '$value $label',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: AppCard(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: p.tint(color),
+                borderRadius: AppRadius.brMd,
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(height: AppSpace.md),
+            Text(
+              value,
+              style: context.text.headlineMedium?.copyWith(
+                color: p.text,
+                fontFeatures: AppTypography.tabular,
+              ),
+            ),
+            Text(
+              label,
+              style: context.text.labelMedium?.copyWith(color: p.textMuted),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    required bool isDark,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
+class _EditNameSheet extends StatefulWidget {
+  const _EditNameSheet({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_EditNameSheet> createState() => _EditNameSheetState();
+}
+
+class _EditNameSheetState extends State<_EditNameSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(_controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSheetFrame(
+      title: 'Edit your name',
+      subtitle: 'This is how you appear on orders and inquiries.',
+      footer: AppButton(
+        label: 'Save changes',
+        size: AppButtonSize.large,
+        expand: true,
+        onPressed: _save,
+      ),
+      child: Form(
+        key: _formKey,
+        child: AppTextField(
+          controller: _controller,
+          label: 'Full name',
+          icon: Icons.person_outline_rounded,
+          maxLength: 120,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.name],
+          onSubmitted: (_) => _save(),
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? 'Enter your name' : null,
         ),
-        child: Icon(icon, size: 18, color: AppColors.accent),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 11.5,
-          color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
-        ),
-      ),
-      trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
     );
   }
 }

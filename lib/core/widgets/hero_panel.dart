@@ -14,7 +14,9 @@ class HeroPanel extends StatelessWidget {
   });
 
   static const Color on = Colors.white;
-  static const Color onMuted = Color(0xCCFFFFFF); // 80% white, ≥ 7:1 on hero ink
+  static const Color onMuted = Color(
+    0xCCFFFFFF,
+  ); // 80% white, ≥ 7:1 on hero ink
   static const Color onFaint = Color(0x29FFFFFF); // fills/hairlines
 
   final Widget child;

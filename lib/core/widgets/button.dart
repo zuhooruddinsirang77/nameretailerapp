@@ -51,28 +51,34 @@ class AppButton extends StatelessWidget {
     final (Color bg, Color fg, BorderSide? border) = switch (variant) {
       AppButtonVariant.primary => (p.brand, p.onBrand, null),
       AppButtonVariant.secondary => (p.brandSoft, p.brandText, null),
-      AppButtonVariant.outline =>
-        (Colors.transparent, p.text, BorderSide(color: p.borderStrong)),
+      AppButtonVariant.outline => (
+        Colors.transparent,
+        p.text,
+        BorderSide(color: p.borderStrong),
+      ),
       AppButtonVariant.text => (Colors.transparent, p.brandText, null),
       AppButtonVariant.danger => (p.danger, Colors.white, null),
     };
 
-    final bgColor = disabledLook && variant != AppButtonVariant.text &&
+    final bgColor =
+        disabledLook &&
+            variant != AppButtonVariant.text &&
             variant != AppButtonVariant.outline
         ? p.surfaceAlt
         : bg;
     final fgColor = disabledLook ? p.textMuted : fg;
 
     final (double height, double hPad, double iconSize) = switch (size) {
-      AppButtonSize.small => (40, AppSpace.md, 18),
+      AppButtonSize.small => (AppSpace.minTarget, AppSpace.md, 18),
       AppButtonSize.medium => (AppSpace.minTarget, AppSpace.lg, 20),
       AppButtonSize.large => (56, AppSpace.xl - 4, 22),
     };
 
-    final style = (size == AppButtonSize.large
-            ? context.text.labelLarge?.copyWith(fontSize: 15.5)
-            : context.text.labelLarge)
-        ?.copyWith(color: fgColor);
+    final style =
+        (size == AppButtonSize.large
+                ? context.text.labelLarge?.copyWith(fontSize: 15.5)
+                : context.text.labelLarge)
+            ?.copyWith(color: fgColor);
 
     final content = Row(
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
@@ -99,7 +105,7 @@ class AppButton extends StatelessWidget {
           child: Text(
             label,
             style: style,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),
@@ -134,21 +140,13 @@ class AppButton extends StatelessWidget {
       ),
     );
 
-    // Small buttons are visually 40dp but keep a 48dp hit area.
-    final sized = size == AppButtonSize.small
-        ? ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppSpace.minTarget),
-            child: Center(widthFactor: expand ? null : 1, child: visual),
-          )
-        : visual;
-
     return Semantics(
       button: true,
       enabled: enabled,
       label: semanticLabel ?? label,
       excludeSemantics: true,
       onTap: enabled ? onPressed : null,
-      child: expand ? SizedBox(width: double.infinity, child: sized) : sized,
+      child: expand ? SizedBox(width: double.infinity, child: visual) : visual,
     );
   }
 }

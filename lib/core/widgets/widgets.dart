@@ -3,6 +3,7 @@
 library;
 
 export 'bottom_sheet.dart';
+export 'brand_mark.dart';
 export 'button.dart';
 export 'card.dart';
 export 'choice_tile.dart';
@@ -17,6 +18,7 @@ export 'misc.dart';
 export 'pressable.dart';
 export 'price_summary_bar.dart';
 export 'section_header.dart';
+export 'screen_intro.dart';
 export 'skeleton.dart';
 export 'state_views.dart';
 export 'step_progress.dart';

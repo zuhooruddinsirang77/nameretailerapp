@@ -7,11 +7,8 @@ import '../theme/app_tokens.dart';
 /// highlighted, upcoming steps are muted. Labels sit under the markers so it
 /// fits 360dp screens.
 class StepProgress extends StatelessWidget {
-  const StepProgress({
-    super.key,
-    required this.steps,
-    required this.current,
-  }) : assert(current >= 0);
+  const StepProgress({super.key, required this.steps, required this.current})
+    : assert(current >= 0);
 
   final List<String> steps;
 
@@ -46,8 +43,8 @@ class StepProgress extends StatelessWidget {
                         state: i < current
                             ? _StepState.done
                             : i == current
-                                ? _StepState.current
-                                : _StepState.upcoming,
+                            ? _StepState.current
+                            : _StepState.upcoming,
                         duration: dur,
                       ),
                       Expanded(
@@ -67,8 +64,9 @@ class StepProgress extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: context.text.labelMedium?.copyWith(
                         color: i == current ? p.text : p.textMuted,
-                        fontWeight:
-                            i == current ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight: i == current
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                       ),
                     ),
                   ),
@@ -111,7 +109,10 @@ class _Marker extends StatelessWidget {
       decoration: BoxDecoration(
         color: fill,
         shape: BoxShape.circle,
-        border: Border.all(color: line, width: state == _StepState.current ? 2 : 1),
+        border: Border.all(
+          color: line,
+          width: state == _StepState.current ? 2 : 1,
+        ),
       ),
       alignment: Alignment.center,
       child: state == _StepState.done

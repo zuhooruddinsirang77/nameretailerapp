@@ -19,9 +19,8 @@ Future<void> main() async {
       child: const NameRetailerApp(),
     ),
   );
-
-  
 }
+
 
 class NameRetailerApp extends ConsumerWidget {
   const NameRetailerApp({super.key});
@@ -36,6 +35,8 @@ class NameRetailerApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      builder: (context, child) =>
+          SafeArea(top: false, bottom: false, child: child!),
       routerConfig: router,
     );
   }

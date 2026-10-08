@@ -1,15 +1,29 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimens.dart';
-import '../../../../core/widgets/app_button.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/widgets.dart';
 import '../data/product_repository.dart';
 import '../models/facets.dart';
+import 'filter_edit.dart';
+
+/// Opens the catalogue filter sheet. [onApply] receives the updated params
+/// (page reset to 1).
+Future<void> showFilterSheet(
+  BuildContext context, {
+  required ProductFilterParams initial,
+  required ProductFacets facets,
+  required ValueChanged<ProductFilterParams> onApply,
+}) {
+  return showAppSheetRaw<void>(
+    context,
+    builder: (_) =>
+        FilterSheet(initialParams: initial, facets: facets, onApply: onApply),
+  );
+}
 
 class FilterSheet extends StatefulWidget {
-  final ProductFilterParams initialParams;
-  final ProductFacets facets;
-  final Function(ProductFilterParams) onApply;
-
   const FilterSheet({
     super.key,
     required this.initialParams,
@@ -17,18 +31,19 @@ class FilterSheet extends StatefulWidget {
     required this.onApply,
   });
 
+  final ProductFilterParams initialParams;
+  final ProductFacets facets;
+  final ValueChanged<ProductFilterParams> onApply;
+
   @override
   State<FilterSheet> createState() => _FilterSheetState();
 }
 
 class _FilterSheetState extends State<FilterSheet> {
-  late String? _selectedCategory;
-  late String? _selectedCountry;
-  late double _minDr;
-  late double _minDa;
-  late double _maxPrice;
+  static const _drDaMax = 100.0;
+  static const _priceMax = 1000.0;
 
-  final List<String> _popularCategories = const [
+  static const _popularCategories = [
     'Business',
     'Technology',
     'Marketing',
@@ -37,323 +52,458 @@ class _FilterSheetState extends State<FilterSheet> {
     'E-commerce',
   ];
 
+  String? _category;
+  String? _country;
+  late RangeValues _dr;
+  late RangeValues _da;
+  late RangeValues _price;
+
   @override
   void initState() {
     super.initState();
-    _selectedCategory = widget.initialParams.category;
-    _selectedCountry = widget.initialParams.country;
-    _minDr = (widget.initialParams.minDr ?? 0).toDouble();
-    _minDa = (widget.initialParams.minDa ?? 0).toDouble();
-    _maxPrice = widget.initialParams.maxPrice ?? 1000;
+    final p = widget.initialParams;
+    _category = p.category;
+    _country = p.country;
+    _dr = RangeValues(
+      (p.minDr ?? 0).toDouble(),
+      (p.maxDr ?? _drDaMax).toDouble(),
+    );
+    _da = RangeValues(
+      (p.minDa ?? 0).toDouble(),
+      (p.maxDa ?? _drDaMax).toDouble(),
+    );
+    _price = RangeValues(p.minPrice ?? 0, p.maxPrice ?? _priceMax);
   }
+
+  bool get _isDefault =>
+      _category == null &&
+      _country == null &&
+      _dr == const RangeValues(0, _drDaMax) &&
+      _da == const RangeValues(0, _drDaMax) &&
+      _price == const RangeValues(0, _priceMax);
 
   void _reset() {
     setState(() {
-      _selectedCategory = null;
-      _selectedCountry = null;
-      _minDr = 0;
-      _minDa = 0;
-      _maxPrice = 1000;
+      _category = null;
+      _country = null;
+      _dr = const RangeValues(0, _drDaMax);
+      _da = const RangeValues(0, _drDaMax);
+      _price = const RangeValues(0, _priceMax);
     });
   }
 
   void _apply() {
-    final updated = widget.initialParams.copyWith(
-      category: _selectedCategory,
-      country: _selectedCountry,
-      minDr: _minDr > 0 ? _minDr.toInt() : null,
-      minDa: _minDa > 0 ? _minDa.toInt() : null,
-      maxPrice: _maxPrice < 1000 ? _maxPrice : null,
-      page: 1,
+    HapticFeedback.lightImpact();
+    widget.onApply(
+      widget.initialParams.edit(
+        category: _category,
+        country: _country,
+        minDr: _dr.start > 0 ? _dr.start.round() : null,
+        maxDr: _dr.end < _drDaMax ? _dr.end.round() : null,
+        minDa: _da.start > 0 ? _da.start.round() : null,
+        maxDa: _da.end < _drDaMax ? _da.end.round() : null,
+        minPrice: _price.start > 0 ? _price.start : null,
+        maxPrice: _price.end < _priceMax ? _price.end : null,
+        page: 1,
+      ),
     );
-    widget.onApply(updated);
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final p = context.palette;
+    final facets = widget.facets;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppDimens.radiusXl)),
+    return AppSheetFrame(
+      title: 'Filters',
+      subtitle: 'Narrow the catalogue to publications that fit',
+      headerAction: TextButton(
+        onPressed: _isDefault ? null : _reset,
+        child: const Text('Reset'),
       ),
-      padding: EdgeInsets.only(
-        top: AppDimens.space16,
-        left: AppDimens.space20,
-        right: AppDimens.space20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppDimens.space20,
+      footer: AppButton(
+        label: 'Show results',
+        icon: Icons.check_rounded,
+        size: AppButtonSize.large,
+        expand: true,
+        onPressed: _apply,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Grab Handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.dividerDark : AppColors.cardBorderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Sheet Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.tune_rounded, size: 20, color: AppColors.accent),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Catalog Filters',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: _reset,
-                  child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Quick Topic Chips
-            Text(
-              'Popular Topics',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _popularCategories.map((cat) {
-                final isSelected = _selectedCategory == cat;
-                return ChoiceChip(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionHeader(
+            title: 'Audience fit',
+            subtitle: 'Topic and location',
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.sm,
+            children: [
+              for (final cat in _popularCategories)
+                FilterChip(
                   label: Text(cat),
-                  selected: isSelected,
-                  onSelected: (val) {
-                    setState(() {
-                      _selectedCategory = val ? cat : null;
-                    });
-                  },
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? Colors.white : AppColors.textPrimaryLight),
+                  selected: _category == cat,
+                  showCheckmark: false,
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
+                  selectedColor: p.brandSoft,
+                  side: BorderSide(
+                    color: _category == cat ? p.brand : p.borderStrong,
+                    width: _category == cat ? 1.5 : 1,
                   ),
-                  selectedColor: AppColors.primary,
-                  backgroundColor: isDark ? AppColors.surfaceDarkCard : const Color(0xFFF1F5F9),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                    side: BorderSide(
-                      color: isSelected
-                          ? AppColors.primary
-                          : (isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight),
-                      width: 1,
-                    ),
+                  labelStyle: context.text.labelMedium?.copyWith(
+                    color: _category == cat ? p.brandText : p.text,
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
+                  onSelected: (v) => setState(() => _category = v ? cat : null),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          _PickerField(
+            label: 'All topics',
+            value: _category,
+            emptyLabel: 'Any topic',
+            icon: Icons.category_outlined,
+            onTap: () async {
+              final picked = await showOptionPicker(
+                context,
+                title: 'Topic',
+                options: facets.categories,
+                selected: _category,
+                anyLabel: 'Any topic',
+              );
+              if (picked != null) setState(() => _category = picked.value);
+            },
+          ),
+          const SizedBox(height: AppSpace.sm),
+          _PickerField(
+            label: 'Country',
+            value: _country,
+            emptyLabel: 'Worldwide',
+            icon: Icons.public_rounded,
+            onTap: () async {
+              final picked = await showOptionPicker(
+                context,
+                title: 'Country',
+                options: facets.countries,
+                selected: _country,
+                anyLabel: 'Worldwide',
+              );
+              if (picked != null) setState(() => _country = picked.value);
+            },
+          ),
+          const SizedBox(height: AppSpace.xl),
+          _RangeBlock(
+            title: 'Domain Rating (DR)',
+            summary: _summary(_dr, 'DR', _drDaMax),
+            color: p.metricDr,
+            values: _dr,
+            max: _drDaMax,
+            divisions: 20,
+            onChanged: (v) => setState(() => _dr = v),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          _RangeBlock(
+            title: 'Domain Authority (DA)',
+            summary: _summary(_da, 'DA', _drDaMax),
+            color: p.metricDa,
+            values: _da,
+            max: _drDaMax,
+            divisions: 20,
+            onChanged: (v) => setState(() => _da = v),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          _RangeBlock(
+            title: 'Placement price',
+            summary: _priceSummary(),
+            color: p.price,
+            values: _price,
+            max: _priceMax,
+            divisions: 20,
+            labelBuilder: (v) => '\$${v.round()}',
+            onChanged: (v) => setState(() => _price = v),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // All Topics Dropdown
-            Text(
-              'All Topics',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+  String _summary(RangeValues v, String name, double max) {
+    if (v.start <= 0 && v.end >= max) return 'Any $name';
+    if (v.start <= 0) return '$name up to ${v.end.round()}';
+    if (v.end >= max) return '$name ${v.start.round()}+';
+    return '$name ${v.start.round()}–${v.end.round()}';
+  }
+
+  String _priceSummary() {
+    if (_price.start <= 0 && _price.end >= _priceMax) return 'Any price';
+    if (_price.start <= 0) return 'Up to \$${_price.end.round()}';
+    if (_price.end >= _priceMax) return '\$${_price.start.round()}+';
+    return '\$${_price.start.round()} – \$${_price.end.round()}';
+  }
+}
+
+class _RangeBlock extends StatelessWidget {
+  const _RangeBlock({
+    required this.title,
+    required this.summary,
+    required this.color,
+    required this.values,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+    this.labelBuilder,
+  });
+
+  final String title;
+  final String summary;
+  final Color color;
+  final RangeValues values;
+  final double max;
+  final int divisions;
+  final ValueChanged<RangeValues> onChanged;
+  final String Function(double)? labelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: [
+            Text(title, style: context.text.titleSmall),
+            const SizedBox(width: AppSpace.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.sm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: p.tint(color),
+                borderRadius: AppRadius.brSm,
+              ),
+              child: Text(
+                summary,
+                style: context.text.labelMedium?.copyWith(color: color),
               ),
             ),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCategory != null && widget.facets.categories.contains(_selectedCategory)
-                  ? _selectedCategory
-                  : null,
-              decoration: InputDecoration(
-                hintText: 'Select publication niche',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                filled: true,
-                fillColor: isDark ? AppColors.surfaceDarkCard : const Color(0xFFF8FAFC),
-              ),
-              items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('All Niches & Categories'),
-                ),
-                ...widget.facets.categories.map(
-                  (cat) => DropdownMenuItem(value: cat, child: Text(cat)),
-                ),
-              ],
-              onChanged: (val) => setState(() => _selectedCategory = val),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: color,
+            thumbColor: color,
+            overlayColor: color.withValues(alpha: 0.12),
+            valueIndicatorColor: color,
+          ),
+          child: RangeSlider(
+            values: values,
+            min: 0,
+            max: max,
+            divisions: divisions,
+            labels: RangeLabels(
+              labelBuilder?.call(values.start) ??
+                  values.start.round().toString(),
+              labelBuilder?.call(values.end) ?? values.end.round().toString(),
             ),
-            const SizedBox(height: 16),
+            semanticFormatterCallback: (v) =>
+                labelBuilder?.call(v) ?? v.round().toString(),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-            // Country / Region Dropdown
-            Text(
-              'Target Region / Country',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCountry != null && widget.facets.countries.contains(_selectedCountry)
-                  ? _selectedCountry
-                  : null,
-              decoration: InputDecoration(
-                hintText: 'Select country',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                filled: true,
-                fillColor: isDark ? AppColors.surfaceDarkCard : const Color(0xFFF8FAFC),
-              ),
-              items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('Worldwide (All Countries)'),
-                ),
-                ...widget.facets.countries.map(
-                  (c) => DropdownMenuItem(value: c, child: Text(c)),
-                ),
-              ],
-              onChanged: (val) => setState(() => _selectedCountry = val),
-            ),
-            const SizedBox(height: 20),
+class _PickerField extends StatelessWidget {
+  const _PickerField({
+    required this.label,
+    required this.value,
+    required this.emptyLabel,
+    required this.icon,
+    required this.onTap,
+  });
 
-            // Minimum DR Slider
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Minimum Domain Rating (DR)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.metricDr.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _minDr > 0 ? 'DR ${_minDr.toInt()}+' : 'Any DR',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.metricDr,
+  final String label;
+  final String? value;
+  final String emptyLabel;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Semantics(
+      button: true,
+      label: '$label: ${value ?? emptyLabel}',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Material(
+        color: p.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.brMd,
+          side: BorderSide(color: p.borderStrong),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppSpace.minTarget + 8,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.lg,
+                vertical: AppSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: p.textMuted),
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: context.text.labelSmall?.copyWith(
+                            color: p.textMuted,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        Text(
+                          value ?? emptyLabel,
+                          style: context.text.bodyLarge?.copyWith(
+                            color: value == null ? p.textSecondary : p.text,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Icon(Icons.unfold_more_rounded, color: p.textMuted),
+                ],
+              ),
             ),
-            Slider(
-              value: _minDr,
-              min: 0,
-              max: 90,
-              divisions: 18,
-              activeColor: AppColors.metricDr,
-              onChanged: (val) => setState(() => _minDr = val),
-            ),
-            const SizedBox(height: 10),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            // Minimum DA Slider
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Minimum Domain Authority (DA)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.metricDa.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _minDa > 0 ? 'DA ${_minDa.toInt()}+' : 'Any DA',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.metricDa,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Slider(
-              value: _minDa,
-              min: 0,
-              max: 90,
-              divisions: 18,
-              activeColor: AppColors.metricDa,
-              onChanged: (val) => setState(() => _minDa = val),
-            ),
-            const SizedBox(height: 10),
+/// Result of [showOptionPicker]; `value == null` means "any".
+class PickedOption {
+  const PickedOption(this.value);
+  final String? value;
+}
 
-            // Max Price Slider
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Maximum Placement Price',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentEmerald.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _maxPrice < 1000 ? 'Under \$${_maxPrice.toInt()}' : 'No Limit',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accentEmerald,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Slider(
-              value: _maxPrice,
-              min: 50,
-              max: 1000,
-              divisions: 19,
-              activeColor: AppColors.accentEmerald,
-              onChanged: (val) => setState(() => _maxPrice = val),
-            ),
-            const SizedBox(height: 20),
+/// Searchable single-choice picker for long lists (countries, topics).
+Future<PickedOption?> showOptionPicker(
+  BuildContext context, {
+  required String title,
+  required List<String> options,
+  required String? selected,
+  required String anyLabel,
+}) {
+  return showAppSheetRaw<PickedOption>(
+    context,
+    builder: (_) => _OptionPicker(
+      title: title,
+      options: options,
+      selected: selected,
+      anyLabel: anyLabel,
+    ),
+  );
+}
 
-            // Apply CTA Button
-            AppButton(
-              text: 'Apply Filters',
-              onPressed: _apply,
-              variant: AppButtonVariant.primary,
-              size: AppButtonSize.large,
-              isFullWidth: true,
-              icon: Icons.check_circle_outline,
+class _OptionPicker extends StatefulWidget {
+  const _OptionPicker({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.anyLabel,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selected;
+  final String anyLabel;
+
+  @override
+  State<_OptionPicker> createState() => _OptionPickerState();
+}
+
+class _OptionPickerState extends State<_OptionPicker> {
+  final _search = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final q = _q.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? widget.options
+        : widget.options.where((o) => o.toLowerCase().contains(q)).toList();
+    final height = MediaQuery.sizeOf(context).height * 0.6;
+
+    Widget row(String label, String? value, bool isSelected) => ListTile(
+      minVerticalPadding: 0,
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        label,
+        style: context.text.bodyLarge?.copyWith(
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+          color: isSelected ? p.brandText : p.text,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check_rounded, color: p.brandText)
+          : null,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        Navigator.of(context).pop(PickedOption(value));
+      },
+    );
+
+    return AppSheetFrame(
+      title: widget.title,
+      child: SizedBox(
+        height: height,
+        child: Column(
+          children: [
+            AppSearchField(
+              controller: _search,
+              hint: 'Search',
+              onChanged: (v) => setState(() => _q = v),
+              onClear: () => setState(() => _q = ''),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Expanded(
+              child: ListView.builder(
+                itemCount: shown.length + 1,
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return row(widget.anyLabel, null, widget.selected == null);
+                  }
+                  final o = shown[i - 1];
+                  return row(o, o, widget.selected == o);
+                },
+              ),
             ),
           ],
         ),

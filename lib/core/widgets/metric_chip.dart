@@ -21,18 +21,81 @@ enum MetricKind {
   final String spoken;
 
   Color color(AppPalette p, int? value) => switch (this) {
-        MetricKind.da => p.metricDa,
-        MetricKind.dr => p.metricDr,
-        MetricKind.traffic => p.metricTraffic,
-        MetricKind.tf => p.metricTrust,
-        MetricKind.ur => p.metricDr,
-        MetricKind.backlinks || MetricKind.refDomains => p.metricNeutral,
-        MetricKind.spam => (value ?? 0) > 30 ? p.dangerText : p.successText,
-      };
+    MetricKind.da => p.metricDa,
+    MetricKind.dr => p.metricDr,
+    MetricKind.traffic => p.metricTraffic,
+    MetricKind.tf => p.metricTrust,
+    MetricKind.ur => p.metricDr,
+    MetricKind.backlinks || MetricKind.refDomains => p.metricNeutral,
+    MetricKind.spam => (value ?? 0) > 30 ? p.dangerText : p.successText,
+  };
 }
 
 String _spoken(MetricKind kind, int? value, [String? title]) =>
     '${title ?? kind.spoken}: ${value == null ? 'not available' : Formatters.formatMetric(value)}';
+
+/// A quiet, aligned metric well for scanning publications without colour clutter.
+class MetricStrip extends StatelessWidget {
+  const MetricStrip({super.key, required this.metrics});
+
+  final List<({MetricKind kind, int? value})> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: p.surfaceAlt,
+        borderRadius: AppRadius.brMd,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = (constraints.maxWidth / (72 * scale)).floor().clamp(
+            1,
+            metrics.length,
+          );
+          final width =
+              (constraints.maxWidth - AppSpace.md * (columns - 1)) / columns;
+          return Wrap(
+            spacing: AppSpace.md,
+            runSpacing: AppSpace.md,
+            children: [
+              for (final metric in metrics)
+                SizedBox(
+                  width: width,
+                  child: Semantics(
+                    label: _spoken(metric.kind, metric.value),
+                    excludeSemantics: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          metric.kind.short,
+                          style: context.text.labelMedium?.copyWith(
+                            color: p.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpace.xs),
+                        Text(
+                          Formatters.formatCompact(metric.value),
+                          style: context.text.titleLarge?.copyWith(
+                            fontFeatures: AppTypography.tabular,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
 
 /// Compact "DR 72" style badge for cards and lists.
 class MetricChip extends StatelessWidget {
@@ -57,13 +120,15 @@ class MetricChip extends StatelessWidget {
       label: _spoken(kind, value),
       excludeSemantics: true,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.sm,
+          vertical: 5,
+        ),
         decoration: BoxDecoration(
-          color: p.tint(color, light: highlight ? 0.16 : 0.09),
+          color: highlight ? p.tint(color, light: 0.16) : p.surfaceAlt,
           borderRadius: AppRadius.brSm,
           border: Border.all(
-            color: color.withValues(alpha: highlight ? 0.55 : 0.25),
+            color: highlight ? color.withValues(alpha: 0.55) : p.border,
           ),
         ),
         child: Row(
@@ -187,8 +252,9 @@ class MetricTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title ?? kind.spoken,
-                    style:
-                        context.text.labelMedium?.copyWith(color: p.textMuted),
+                    style: context.text.labelMedium?.copyWith(
+                      color: p.textMuted,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

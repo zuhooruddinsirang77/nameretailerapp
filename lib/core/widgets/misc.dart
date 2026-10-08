@@ -45,7 +45,9 @@ class PriceBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final style = large ? context.text.displaySmall : context.text.headlineMedium;
+    final style = large
+        ? context.text.displaySmall
+        : context.text.headlineMedium;
     return Semantics(
       label: '${label ?? 'Price'} ${Formatters.formatCurrency(cents)}',
       excludeSemantics: true,
@@ -56,8 +58,10 @@ class PriceBlock extends StatelessWidget {
           if (label != null)
             Text(
               label!.toUpperCase(),
-              style: context.text.labelSmall
-                  ?.copyWith(color: p.textMuted, letterSpacing: 0.8),
+              style: context.text.labelSmall?.copyWith(
+                color: p.textMuted,
+                letterSpacing: 0.8,
+              ),
             ),
           Text(
             Formatters.formatCurrency(cents),
@@ -93,13 +97,12 @@ class KeyValueRow extends StatelessWidget {
     final labelStyle = emphasis
         ? context.text.titleSmall
         : context.text.bodyMedium?.copyWith(color: p.textSecondary);
-    final valueStyle = (emphasis
-            ? context.text.headlineMedium
-            : context.text.titleSmall)
-        ?.copyWith(
-      color: valueColor ?? (emphasis ? p.price : p.text),
-      fontFeatures: AppTypography.tabular,
-    );
+    final valueStyle =
+        (emphasis ? context.text.headlineMedium : context.text.titleSmall)
+            ?.copyWith(
+              color: valueColor ?? (emphasis ? p.price : p.text),
+              fontFeatures: AppTypography.tabular,
+            );
     return Semantics(
       label: '$label $value',
       excludeSemantics: true,
@@ -116,6 +119,32 @@ class KeyValueRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Resizes a section smoothly, bypassing animation under reduced motion.
+class MotionSize extends StatelessWidget {
+  const MotionSize({
+    super.key,
+    required this.child,
+    this.duration = AppMotion.base,
+    this.curve = AppMotion.standard,
+    this.alignment = Alignment.topCenter,
+  });
+
+  final Widget child;
+  final Duration duration;
+  final Curve curve;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) => context.reduceMotion
+      ? child
+      : AnimatedSize(
+          duration: duration,
+          curve: curve,
+          alignment: alignment,
+          child: child,
+        );
 }
 
 /// Fades and lifts [child] in once. Skipped under reduced-motion.
@@ -142,7 +171,10 @@ class FadeSlideIn extends StatelessWidget {
       curve: Interval(start, 1, curve: AppMotion.standard),
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, (1 - t) * offset), child: child),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * offset),
+          child: child,
+        ),
       ),
       child: child,
     );

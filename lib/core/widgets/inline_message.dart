@@ -27,31 +27,36 @@ class InlineMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final (Color bg, Color fg, Color line, IconData defaultIcon) = switch (tone) {
+    final (
+      Color bg,
+      Color fg,
+      Color line,
+      IconData defaultIcon,
+    ) = switch (tone) {
       MessageTone.info => (
-          p.infoSoft,
-          p.infoText,
-          p.info.withValues(alpha: 0.3),
-          Icons.info_outline_rounded,
-        ),
+        p.infoSoft,
+        p.infoText,
+        p.info.withValues(alpha: 0.3),
+        Icons.info_outline_rounded,
+      ),
       MessageTone.success => (
-          p.successSoft,
-          p.successText,
-          p.success.withValues(alpha: 0.35),
-          Icons.check_circle_outline_rounded,
-        ),
+        p.successSoft,
+        p.successText,
+        p.success.withValues(alpha: 0.35),
+        Icons.check_circle_outline_rounded,
+      ),
       MessageTone.warning => (
-          p.warningSoft,
-          p.warningText,
-          p.warning.withValues(alpha: 0.4),
-          Icons.warning_amber_rounded,
-        ),
+        p.warningSoft,
+        p.warningText,
+        p.warning.withValues(alpha: 0.4),
+        Icons.warning_amber_rounded,
+      ),
       MessageTone.danger => (
-          p.dangerSoft,
-          p.dangerText,
-          p.danger.withValues(alpha: 0.35),
-          Icons.error_outline_rounded,
-        ),
+        p.dangerSoft,
+        p.dangerText,
+        p.danger.withValues(alpha: 0.35),
+        Icons.error_outline_rounded,
+      ),
     };
 
     return Semantics(

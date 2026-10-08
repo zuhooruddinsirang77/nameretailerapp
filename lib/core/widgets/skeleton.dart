@@ -59,7 +59,11 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
         builder: (context, child) => ShaderMask(
           blendMode: BlendMode.srcATop,
           shaderCallback: (rect) => LinearGradient(
-            colors: [p.skeleton, Color.alphaBlend(highlight, p.skeleton), p.skeleton],
+            colors: [
+              p.skeleton,
+              Color.alphaBlend(highlight, p.skeleton),
+              p.skeleton,
+            ],
             stops: const [0.25, 0.5, 0.75],
             transform: _SlideTransform(_controller.value),
           ).createShader(rect),
@@ -119,11 +123,13 @@ class SkeletonCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration:
-            BoxDecoration(color: context.palette.skeleton, shape: BoxShape.circle),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: context.palette.skeleton,
+      shape: BoxShape.circle,
+    ),
+  );
 }
 
 class _SkeletonCardFrame extends StatelessWidget {
@@ -173,21 +179,13 @@ class ProductCardSkeleton extends StatelessWidget {
             ],
           ),
           SizedBox(height: AppSpace.lg),
-          Row(
-            children: [
-              SkeletonBox(width: 64, height: 26),
-              SizedBox(width: AppSpace.sm),
-              SkeletonBox(width: 64, height: 26),
-              SizedBox(width: AppSpace.sm),
-              SkeletonBox(width: 80, height: 26),
-            ],
-          ),
+          SkeletonBox(height: 68, radius: AppRadius.md),
           SizedBox(height: AppSpace.lg),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               SkeletonBox(width: 90, height: 24),
-              SkeletonBox(width: 120, height: 40, radius: AppRadius.md),
+              SkeletonBox(width: 120, height: 48, radius: AppRadius.md),
             ],
           ),
         ],

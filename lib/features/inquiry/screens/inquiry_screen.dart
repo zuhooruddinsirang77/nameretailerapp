@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/providers/core_providers.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_dimens.dart';
-import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_card.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/utils/error_messages.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/inquiry_repository.dart';
 
@@ -15,9 +16,9 @@ final inquiryRepositoryProvider = Provider<InquiryRepository>((ref) {
 });
 
 class InquiryScreen extends ConsumerStatefulWidget {
-  final String? domain;
-
   const InquiryScreen({super.key, this.domain});
+
+  final String? domain;
 
   @override
   ConsumerState<InquiryScreen> createState() => _InquiryScreenState();
@@ -30,6 +31,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   final _domainController = TextEditingController();
   final _messageController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _scrollController = ScrollController();
 
   bool _submitting = false;
   String? _successMessage;
@@ -55,7 +57,17 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     _domainController.dispose();
     _messageController.dispose();
     _phoneController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: AppMotion.of(context),
+      curve: AppMotion.standard,
+    );
   }
 
   Future<void> _submit() async {
@@ -81,199 +93,150 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
         phone: _phoneController.text.trim(),
       );
 
+      if (!mounted) return;
       setState(() {
         _submitting = false;
         _successMessage = msg;
         _messageController.clear();
       });
       HapticFeedback.lightImpact();
+      _scrollToTop();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _submitting = false;
-        _errorMessage = e.toString();
+        _errorMessage = describeError(e).message;
       });
+      _scrollToTop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final p = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Placement Inquiry')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppDimens.space16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(title: const Text('Placement inquiry')),
+      body: Form(
+        key: _formKey,
+        child: AutofillGroup(
+          child: ListView(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: context.pagePadding(top: AppSpace.sm),
             children: [
-              // Hero Brief Card
-              Container(
-                padding: const EdgeInsets.all(AppDimens.space16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? [const Color(0xFF131D33), const Color(0xFF0F172A)]
-                        : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
-                  ),
-                  borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                ),
+              const ScreenIntro(
+                icon: Icons.support_agent_rounded,
+                eyebrow: 'Publisher support',
+                title: 'Let’s find the right fit.',
+                message:
+                    'Ask about a publication, a custom niche or your next campaign.',
+              ),
+              const SizedBox(height: AppSpace.lg),
+              MotionSize(
+                duration: AppMotion.of(context, AppMotion.fast),
+                alignment: Alignment.topCenter,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Direct Publisher Coordination',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
+                    if (_successMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpace.lg),
+                        child: InlineMessage(
+                          tone: MessageTone.success,
+                          title: 'Inquiry sent',
+                          message: _successMessage!,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Have custom requirements, agency volume queries, or niche criteria? Submit a direct inquiry to our publisher management team.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 12.5,
-                        height: 1.4,
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpace.lg),
+                        child: InlineMessage(
+                          tone: MessageTone.danger,
+                          title: "Couldn't send your inquiry",
+                          message: _errorMessage!,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
-
-              // Success Message Banner
-              if (_successMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(color: AppColors.success),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle_rounded, color: AppColors.success),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _successMessage!,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Error Message Banner
-              if (_errorMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(color: AppColors.error),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: AppColors.error),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Form Card
               AppCard(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
+                    Text('Your inquiry', style: context.text.titleMedium),
+                    const SizedBox(height: AppSpace.lg),
+                    AppTextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Your Full Name *',
-                        prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-                      ),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Please enter your name' : null,
+                      label: 'Your name',
+                      icon: Icons.person_outline_rounded,
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Please enter your name'
+                          : null,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                    const SizedBox(height: AppSpace.md),
+                    AppTextField(
                       controller: _emailController,
+                      label: 'Email address',
+                      icon: Icons.mail_outline_rounded,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Your Email Address *',
-                        prefixIcon: Icon(Icons.email_outlined, size: 20),
-                      ),
-                      validator: (v) =>
-                          v == null || !v.contains('@') ? 'Valid email required' : null,
+                      autofillHints: const [AutofillHints.email],
+                      autocorrect: false,
+                      validator: (v) => v == null || !v.trim().contains('@')
+                          ? 'Enter a valid email address'
+                          : null,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                    const SizedBox(height: AppSpace.md),
+                    AppTextField(
                       controller: _domainController,
-                      decoration: const InputDecoration(
-                        labelText: 'Domain of Interest (Optional)',
-                        hintText: 'e.g. 0000yic.com',
-                        prefixIcon: Icon(Icons.language_rounded, size: 20),
-                      ),
+                      label: 'Domain of interest (optional)',
+                      hint: 'e.g. example.com',
+                      icon: Icons.language_rounded,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                    const SizedBox(height: AppSpace.md),
+                    AppTextField(
                       controller: _phoneController,
+                      label: 'Phone (optional)',
+                      icon: Icons.phone_outlined,
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number (Optional)',
-                        prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                      ),
+                      autofillHints: const [AutofillHints.telephoneNumber],
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                    const SizedBox(height: AppSpace.md),
+                    AppTextField(
                       controller: _messageController,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Inquiry & Placement Details *',
-                        hintText:
-                            'Describe your brand topic, intended content format, or turnaround expectations…',
-                      ),
+                      label: 'How can we help?',
+                      hint:
+                          'Your topic, content format or turnaround expectations…',
+                      minLines: 4,
+                      maxLines: 8,
+                      textCapitalization: TextCapitalization.sentences,
                       validator: (v) => v == null || v.trim().length < 5
-                          ? 'Please share more detail about your inquiry'
+                          ? 'Please share a little more detail'
                           : null,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Submit Button
+              const SizedBox(height: AppSpace.xl),
               AppButton(
-                text: 'Send Placement Inquiry',
+                label: 'Send inquiry',
                 icon: Icons.send_rounded,
-                isLoading: _submitting,
+                loading: _submitting,
                 size: AppButtonSize.large,
-                isFullWidth: true,
+                expand: true,
                 onPressed: _submit,
               ),
-              const SizedBox(height: 16),
-
+              const SizedBox(height: AppSpace.lg),
               Center(
                 child: Text(
-                  'Or reach out directly at info@nameretailer.com',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
-                  ),
+                  'Or email info@nameretailer.com',
+                  style: context.text.bodySmall?.copyWith(color: p.textMuted),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpace.lg),
             ],
           ),
         ),

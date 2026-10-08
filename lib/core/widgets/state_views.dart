@@ -76,8 +76,9 @@ class ErrorState extends StatelessWidget {
     final p = context.palette;
     final info = describeError(error);
     final color = info.offline ? p.warningText : p.dangerText;
-    final icon =
-        info.offline ? Icons.wifi_off_rounded : Icons.error_outline_rounded;
+    final icon = info.offline
+        ? Icons.wifi_off_rounded
+        : Icons.error_outline_rounded;
     final shownTitle = title ?? info.title;
     final shownMessage = message ?? info.message;
     final retry = onRetry == null
@@ -86,7 +87,9 @@ class ErrorState extends StatelessWidget {
             label: 'Try again',
             icon: Icons.refresh_rounded,
             onPressed: onRetry,
-            variant: compact ? AppButtonVariant.secondary : AppButtonVariant.primary,
+            variant: compact
+                ? AppButtonVariant.secondary
+                : AppButtonVariant.primary,
           );
 
     if (compact) {
@@ -164,11 +167,14 @@ class _CenteredMessage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
                         color: iconBackground,
-                        shape: BoxShape.circle,
+                        borderRadius: AppRadius.brLg,
+                        border: Border.all(
+                          color: iconColor.withValues(alpha: 0.16),
+                        ),
                       ),
                       child: Icon(icon, size: 32, color: iconColor),
                     ),
