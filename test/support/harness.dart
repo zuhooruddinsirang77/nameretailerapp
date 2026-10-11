@@ -18,6 +18,10 @@ import 'package:nameretailer_mobile/features/marketplace/models/facets.dart';
 import 'package:nameretailer_mobile/features/marketplace/models/product.dart';
 import 'package:nameretailer_mobile/features/marketplace/providers/product_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nameretailer_mobile/features/marketplace/data/product_repository.dart';
+import 'package:nameretailer_mobile/features/marketplace/models/placement_options.dart';
+import 'package:nameretailer_mobile/features/cart/data/article_repository.dart';
+import 'package:nameretailer_mobile/features/cart/models/article_file.dart';
 
 Product sampleProduct(
   String id, {
@@ -116,7 +120,7 @@ CartItem sampleCartItem(
     promotedUrl: 'https://client-site.com/a-very/long/landing/page/path',
     keyword: 'enterprise software',
     specialRequirements: '',
-    articleText: '',
+    articleText: 'A complete article or writing brief.',
   ),
 );
 
@@ -160,10 +164,40 @@ class FakeCheckoutRepo implements CheckoutRepository {
   @override
   Future<CheckoutView> getCheckout() async => CheckoutView(
     draft: draft,
-    cart: await FakeCartRepo().getCart(),
-    issues: const ['One publication changed price since you added it.'],
+    cart: await FakeCartRepo(items: [sampleCartItem('a')]).getCart(),
+    issues: const [],
   );
 
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+PlacementOptions sampleOptions(String id) => PlacementOptions(
+  productId: id,
+  productVersion: 7,
+  domain: sampleProduct(id).domain,
+  placementCents: 8800,
+  currency: 'USD',
+  writingOptions: [
+    WritingOption(words: 500, priceCents: 3500),
+    WritingOption(words: 750, priceCents: 5000),
+  ],
+  requirements: 'No casino links.',
+  turnaround: '4 days',
+  linkType: '03 DoFollow links',
+);
+
+class FakeProductRepo implements ProductRepository {
+  @override
+  Future<PlacementOptions> getProductOptions(String id) async =>
+      sampleOptions(id);
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeArticleRepo implements ArticleRepository {
+  @override
+  Future<List<ArticleFile>> list() async => [];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -190,6 +224,8 @@ Future<List<Override>> testOverrides({
   );
   return [
     sharedPreferencesProvider.overrideWithValue(prefs),
+    productRepositoryProvider.overrideWithValue(FakeProductRepo()),
+    articleRepositoryProvider.overrideWithValue(FakeArticleRepo()),
     authStateProvider.overrideWith(
       (ref) => FakeAuth(signedIn ? testUser() : null),
     ),
@@ -272,6 +308,8 @@ Future<void> pumpApp(
             '/register',
             '/cart',
             '/checkout',
+            '/orders',
+            '/orders/:id',
             '/inquiry',
             '/shortlist',
             '/marketplace',

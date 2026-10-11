@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -10,6 +11,9 @@ import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/checkout.dart';
 import '../providers/checkout_provider.dart';
+import '../data/payment_repository.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../cart/models/brief_validation.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -41,6 +45,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _selectedCountry = 'US';
   String _paymentPreference = 'stripe';
   bool _saving = false;
+  bool _termsAccepted = false;
+  String? _error;
   bool _initializedFromDraft = false;
   int _step = 0;
   final _scrollController = ScrollController();
@@ -112,7 +118,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _required(String? v, String message) =>
       v == null || v.trim().isEmpty ? message : null;
 
-  String? _validateEmail(String? v) => v == null || !v.trim().contains('@')
+  String? _validateEmail(String? v) =>
+      v == null || !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v.trim())
       ? 'Enter a valid billing email'
       : null;
 
@@ -159,7 +166,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _changeStep(_step + 1);
   }
 
-  Future<void> _submitCheckout() async {
+  Future<void> _submitCheckout({bool pay = false}) async {
+    final current = ref.read(checkoutProvider).valueOrNull;
+    if (current == null ||
+        current.issues.isNotEmpty ||
+        current.cart.items.isEmpty) {
+      return;
+    }
+    if (pay &&
+        (!_termsAccepted ||
+            !current.orderSubmissionAvailable ||
+            !current.paymentMethods.available(_paymentPreference))) {
+      return;
+    }
     if (!_billingIsValid) {
       _changeStep(0);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -182,7 +201,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     HapticFeedback.mediumImpact();
 
     final billing = BillingDetails(
@@ -207,6 +229,40 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         );
 
     if (!mounted) return;
+    if (!success) {
+      setState(() {
+        _saving = false;
+        _error =
+            ref.read(checkoutProvider.notifier).lastError ??
+            'Could not save the draft. Please try again.';
+      });
+      return;
+    }
+
+    if (pay) {
+      try {
+        final view = ref.read(checkoutProvider).requireValue;
+        final redirect = await ref
+            .read(paymentRepositoryProvider)
+            .start(
+              cartVersion: view.cart.version,
+              draftVersion: view.draft!.version,
+              provider: _paymentPreference,
+            );
+        if (!mounted) return;
+        setState(() => _saving = false);
+        await context.push('/orders/${redirect.orderId}', extra: redirect);
+        if (mounted) await ref.read(checkoutProvider.notifier).loadCheckout();
+      } catch (error) {
+        if (mounted) {
+          setState(() {
+            _saving = false;
+            _error = error.toString();
+          });
+        }
+      }
+      return;
+    }
     setState(() => _saving = false);
 
     if (success) {
@@ -216,7 +272,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         context,
         title: 'Order draft saved',
         message:
-            'Your placement configuration and billing details have been stored. A private 7-day reservation has been created for your order.',
+            'Your billing details and payment preference are saved privately for 7 days. Saving a draft does not reserve inventory, place an order or charge a payment.',
         buttonLabel: 'Back to cart',
       );
       if (mounted) context.go('/cart');
@@ -279,6 +335,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         data: (view) {
           _populateFromDraft(view.draft);
+          final countries = view.billingCountries.isEmpty
+              ? _countries
+              : view.billingCountries;
+          final canReview =
+              view.issues.isEmpty &&
+              view.cart.items.isNotEmpty &&
+              view.cart.totalCents != null;
+          final canPay =
+              canReview &&
+              view.orderSubmissionAvailable &&
+              view.paymentMethods.available(_paymentPreference);
           final totalCents =
               view.cart.totalCents ??
               view.cart.items.fold<int>(
@@ -305,13 +372,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             current: _step,
                           ),
                           const SizedBox(height: AppSpace.xl),
+                          if (_error != null)
+                            InlineMessage(
+                              tone: MessageTone.danger,
+                              message: _error!,
+                            ),
                           if (_step == 2)
                             const InlineMessage(
                               tone: MessageTone.success,
                               icon: Icons.verified_user_outlined,
-                              title: 'Save now. Confirm later.',
+                              title: 'Review your placement order',
                               message:
-                                  'No charges will be processed today. Your order details are saved privately for 7 days.',
+                                  'Save a private draft or continue to your selected payment provider. Payment is confirmed securely before your order is marked paid.',
                             ),
                           if (view.issues.isNotEmpty) ...[
                             const SizedBox(height: AppSpace.md),
@@ -335,6 +407,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   keyboardType: TextInputType.emailAddress,
                                   autofillHints: const [AutofillHints.email],
                                   autocorrect: false,
+                                  maxLength: 254,
                                   validator: _validateEmail,
                                 ),
                                 _Pair(
@@ -342,6 +415,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     controller: _firstNameController,
                                     focusNode: _firstNameFocus,
                                     label: 'First name',
+                                    maxLength: 100,
                                     textCapitalization:
                                         TextCapitalization.words,
                                     autofillHints: const [
@@ -353,6 +427,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     controller: _lastNameController,
                                     focusNode: _lastNameFocus,
                                     label: 'Last name',
+                                    maxLength: 100,
                                     textCapitalization:
                                         TextCapitalization.words,
                                     autofillHints: const [
@@ -364,6 +439,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 AppTextField(
                                   controller: _phoneController,
                                   label: 'Phone (optional)',
+                                  maxLength: 50,
                                   icon: Icons.phone_outlined,
                                   keyboardType: TextInputType.phone,
                                   autofillHints: const [
@@ -379,7 +455,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               children: [
                                 DropdownButtonFormField<String>(
                                   initialValue:
-                                      _countries.any(
+                                      countries.any(
                                         (c) => c.code == _selectedCountry,
                                       )
                                       ? _selectedCountry
@@ -393,7 +469,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     ),
                                   ),
                                   items: [
-                                    for (final c in _countries)
+                                    for (final c in countries)
                                       DropdownMenuItem(
                                         value: c.code,
                                         child: Text(
@@ -410,6 +486,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   controller: _streetController,
                                   focusNode: _streetFocus,
                                   label: 'Street address',
+                                  maxLength: 200,
                                   textCapitalization: TextCapitalization.words,
                                   autofillHints: const [
                                     AutofillHints.streetAddressLine1,
@@ -420,6 +497,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 AppTextField(
                                   controller: _apartmentController,
                                   label: 'Suite / apartment (optional)',
+                                  maxLength: 200,
                                   textCapitalization: TextCapitalization.words,
                                   autofillHints: const [
                                     AutofillHints.streetAddressLine2,
@@ -430,6 +508,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     controller: _cityController,
                                     focusNode: _cityFocus,
                                     label: 'City',
+                                    maxLength: 100,
                                     textCapitalization:
                                         TextCapitalization.words,
                                     autofillHints: const [
@@ -440,6 +519,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   second: AppTextField(
                                     controller: _regionController,
                                     label: 'State / region',
+                                    maxLength: 100,
                                     textCapitalization:
                                         TextCapitalization.words,
                                     autofillHints: const [
@@ -450,6 +530,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 AppTextField(
                                   controller: _postalCodeController,
                                   label: 'Postal code (optional)',
+                                  maxLength: 30,
                                   textCapitalization:
                                       TextCapitalization.characters,
                                   autofillHints: const [
@@ -466,13 +547,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               icon: Icons.payments_outlined,
                               title: 'Payment preference',
                               subtitle:
-                                  'Choose a preference for your order draft. Payment details are collected when your order is confirmed.',
+                                  'Choose your payment method. You enter payment details securely with Stripe or PayPal after reviewing the order.',
                               children: [
                                 ChoiceTile(
                                   selected: _paymentPreference == 'stripe',
                                   leadingIcon: Icons.credit_card_rounded,
                                   title: 'Credit card',
-                                  subtitle: 'Stripe',
+                                  subtitle: view.paymentMethods.stripe
+                                      ? 'Stripe · Available'
+                                      : 'Stripe · Not configured yet',
                                   onTap: () => setState(
                                     () => _paymentPreference = 'stripe',
                                   ),
@@ -482,7 +565,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   leadingIcon:
                                       Icons.account_balance_wallet_outlined,
                                   title: 'PayPal',
-                                  subtitle: 'PayPal or account balance',
+                                  subtitle: view.paymentMethods.paypal
+                                      ? 'PayPal · Available'
+                                      : 'PayPal · Not configured yet',
                                   onTap: () => setState(
                                     () => _paymentPreference = 'paypal',
                                   ),
@@ -546,6 +631,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 AppTextField(
                                   controller: _notesController,
                                   label: 'Notes (optional)',
+                                  maxLength: 4000,
+                                  validator: (value) =>
+                                      validateBriefText(value, max: 4000),
                                   hint:
                                       'Timing, publication preferences, reference numbers…',
                                   minLines: 3,
@@ -558,6 +646,108 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             ),
                             const SizedBox(height: AppSpace.xl),
                             _OrderReview(view: view, totalCents: totalCents),
+                            const SizedBox(height: AppSpace.md),
+                            if (view.paymentAvailable) ...[
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: _termsAccepted,
+                                title: const Text(
+                                  'I agree to the Terms, Privacy Policy and Refund Policy.',
+                                ),
+                                onChanged: _saving
+                                    ? null
+                                    : (value) => setState(
+                                        () => _termsAccepted = value ?? false,
+                                      ),
+                              ),
+                              Wrap(
+                                children: [
+                                  for (final policy in [
+                                    ('Terms', '/terms/'),
+                                    ('Privacy Policy', '/privacy/'),
+                                    ('Refund Policy', '/refund-policy/'),
+                                  ])
+                                    TextButton(
+                                      onPressed: () => launchUrl(
+                                        Uri.parse(
+                                          '${ApiConstants.baseUrl}${policy.$2}',
+                                        ),
+                                        mode: LaunchMode.externalApplication,
+                                      ),
+                                      child: Text(policy.$1),
+                                    ),
+                                ],
+                              ),
+                              AppButton(
+                                label: _paymentPreference == 'paypal'
+                                    ? 'Pay with PayPal'
+                                    : 'Pay with Stripe',
+                                icon: Icons.lock_outline,
+                                loading: _saving,
+                                onPressed: canPay && _termsAccepted && !_saving
+                                    ? () => _submitCheckout(pay: true)
+                                    : null,
+                              ),
+                              if (!view.paymentMethods.available(
+                                _paymentPreference,
+                              ))
+                                const InlineMessage(
+                                  message:
+                                      'This payment method is not available yet. Choose an available method or save your draft.',
+                                ),
+                            ] else
+                              const InlineMessage(
+                                message:
+                                    'Online payments will be available once Stripe or PayPal is configured. You can save your checkout draft now.',
+                              ),
+                            if (view.draft != null)
+                              TextButton(
+                                onPressed: _saving
+                                    ? null
+                                    : () async {
+                                        final remove = await showConfirmDialog(
+                                          context,
+                                          title: 'Delete saved billing draft?',
+                                          message:
+                                              'This removes the saved billing details and notes from your account.',
+                                          confirmLabel: 'Delete',
+                                          destructive: true,
+                                        );
+                                        if (!remove || !mounted) return;
+                                        final removed = await ref
+                                            .read(checkoutProvider.notifier)
+                                            .deleteDraft();
+                                        if (!mounted) return;
+                                        if (removed) {
+                                          for (final controller in [
+                                            _emailController,
+                                            _firstNameController,
+                                            _lastNameController,
+                                            _streetController,
+                                            _apartmentController,
+                                            _cityController,
+                                            _regionController,
+                                            _postalCodeController,
+                                            _phoneController,
+                                            _notesController,
+                                          ]) {
+                                            controller.clear();
+                                          }
+                                          setState(() {
+                                            _initializedFromDraft = false;
+                                            _termsAccepted = false;
+                                            _step = 0;
+                                          });
+                                        } else {
+                                          setState(
+                                            () => _error = ref
+                                                .read(checkoutProvider.notifier)
+                                                .lastError,
+                                          );
+                                        }
+                                      },
+                                child: const Text('Delete saved billing draft'),
+                              ),
                           ],
                           const SizedBox(height: AppSpace.lg),
                         ],
@@ -578,11 +768,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ? Icons.check_rounded
                     : Icons.arrow_forward_rounded,
                 loading: _saving,
-                onAction: _saving
+                onAction: _saving || !canReview
                     ? null
                     : _step < 2
                     ? _continue
-                    : _submitCheckout,
+                    : () => _submitCheckout(),
               ),
             ],
           );

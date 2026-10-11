@@ -57,8 +57,8 @@ A complete, production-ready Flutter mobile application exclusively for NameReta
    - Step 1: Publication → Step 2: Brief & Cart → Step 3: Checkout Review.
    - Billing details form (First Name, Last Name, Email, Country, Address, City, Postal Code, Phone).
    - Special order notes.
-   - Payment preference selection (Stripe / PayPal readiness).
-   - 7-day private draft reservation system.
+   - Stripe and PayPal hosted checkout, verified payment status and customer order history.
+   - 7-day private billing drafts. Saving a draft does not reserve inventory or take payment.
 
 6. **Customer Account & Security**:
    - Customer login with email & password.
@@ -116,16 +116,25 @@ The mobile app integrates with the existing NameRetailer backend:
 | `/api/mobile/products/:id/` | `GET` | Publication details and placement options |
 | `/api/mobile/cart/` | `GET`, `PUT`, `DELETE` | Customer planning cart operations |
 | `/api/mobile/checkout/` | `GET`, `PUT` | Checkout review and 7-day draft saving |
+| `/api/mobile/checkout/` | `DELETE` | Delete saved billing draft |
+| `/api/mobile/cart/files/` | `GET`, `POST` | Retained article files and private uploads |
+| `/api/mobile/cart/files/:id/` | `GET`, `DELETE` | Owner-only article download and deletion |
+| `/api/mobile/payments/` | `POST` | Create or resume Stripe/PayPal hosted checkout |
+| `/api/mobile/payments/confirm/` | `POST` | Server-verified payment confirmation |
+| `/api/mobile/orders/` | `GET` | Customer order history |
+| `/api/mobile/orders/:id/` | `GET` | Customer order status |
 | `/api/mobile/inquiries/` | `POST` | Submit customer placement questions |
 
 ---
 
 ## 5. Setup & Running Instructions
 
+See [mobile payment setup](docs/payments.md) for server `.env` variables, webhooks and payment verification. Provider secrets belong only in the backend environment.
+
 ### Prerequisites
 - Flutter SDK 3.41+
 - Android Studio / Android SDK 34+
-- Xcode (for iOS on macOS)
+- Xcode (for iOS on macOS), targeting iOS 14+ for the native document picker
 
 ### Install Dependencies
 ```bash

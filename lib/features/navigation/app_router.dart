@@ -6,6 +6,9 @@ import '../auth/screens/login_screen.dart';
 import '../auth/screens/register_screen.dart';
 import '../cart/screens/cart_screen.dart';
 import '../checkout/screens/checkout_screen.dart';
+import '../checkout/screens/order_screen.dart';
+import '../checkout/screens/orders_screen.dart';
+import '../checkout/models/payment.dart';
 import '../home/screens/home_screen.dart';
 import '../inquiry/screens/inquiry_screen.dart';
 import '../marketplace/screens/domain_detail_screen.dart';
@@ -91,6 +94,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/checkout',
         builder: (context, state) => const CheckoutScreen(),
+      ),
+
+      // Inquiry screen
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/orders',
+        builder: (context, state) => const OrdersScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/orders/:id',
+        builder: (context, state) => OrderScreen(
+          orderId: state.pathParameters['id']!,
+          redirect: state.extra is PaymentRedirect
+              ? state.extra as PaymentRedirect
+              : null,
+        ),
       ),
 
       // Inquiry screen

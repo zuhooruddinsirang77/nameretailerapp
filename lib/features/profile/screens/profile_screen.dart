@@ -120,6 +120,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: () => context.go('/cart'),
               ),
               AppListTile(
+                icon: Icons.receipt_long_outlined,
+                title: 'Your orders',
+                subtitle: 'Payment status and placement history',
+                onTap: () => context.push('/orders'),
+              ),
+              AppListTile(
                 icon: Icons.mail_outline_rounded,
                 title: 'Send an inquiry',
                 subtitle: 'Custom niches or high-volume orders',

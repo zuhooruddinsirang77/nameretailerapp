@@ -23,10 +23,7 @@ class CartRepository {
     try {
       final response = await _apiClient.dio.put(
         ApiConstants.cart,
-        data: {
-          'version': cartVersion,
-          'item': item.toSelectionJson(),
-        },
+        data: {'version': cartVersion, 'item': item.toSelectionJson()},
       );
       return CartView.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
@@ -41,10 +38,7 @@ class CartRepository {
     try {
       final response = await _apiClient.dio.delete(
         ApiConstants.cart,
-        data: {
-          'version': cartVersion,
-          'productId': productId,
-        },
+        data: {'version': cartVersion, 'productId': productId},
       );
       return CartView.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {

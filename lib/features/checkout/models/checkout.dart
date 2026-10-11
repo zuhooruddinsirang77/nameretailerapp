@@ -1,4 +1,5 @@
 import '../../cart/models/cart.dart';
+import 'payment.dart';
 
 class BillingDetails {
   final String email;
@@ -132,6 +133,8 @@ class CheckoutView {
   final List<String> issues;
   final bool paymentAvailable;
   final bool orderSubmissionAvailable;
+  final PaymentMethods paymentMethods;
+  final List<({String code, String name})> billingCountries;
 
   CheckoutView({
     this.draft,
@@ -139,6 +142,8 @@ class CheckoutView {
     required this.issues,
     this.paymentAvailable = false,
     this.orderSubmissionAvailable = false,
+    this.paymentMethods = const PaymentMethods(),
+    this.billingCountries = const [],
   });
 
   factory CheckoutView.fromJson(Map<String, dynamic> json) {
@@ -152,7 +157,17 @@ class CheckoutView {
           : CartView.empty(),
       issues: issuesList.map((e) => e.toString()).toList(),
       paymentAvailable: json['paymentAvailable'] as bool? ?? false,
-      orderSubmissionAvailable: json['orderSubmissionAvailable'] as bool? ?? false,
+      orderSubmissionAvailable:
+          json['orderSubmissionAvailable'] as bool? ?? false,
+      paymentMethods: PaymentMethods.fromJson(
+        json['paymentMethods'] as Map<String, dynamic>?,
+      ),
+      billingCountries: (json['billingCountries'] as List? ?? [])
+          .map(
+            (value) =>
+                (code: value['code'] as String, name: value['name'] as String),
+          )
+          .toList(),
     );
   }
 }

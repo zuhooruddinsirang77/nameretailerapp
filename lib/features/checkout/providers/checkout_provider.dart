@@ -13,18 +13,17 @@ final checkoutRepositoryProvider = Provider<CheckoutRepository>((ref) {
 class CheckoutNotifier extends StateNotifier<AsyncValue<CheckoutView>> {
   final CheckoutRepository _repository;
   final Ref _ref;
+  String? lastError;
 
   CheckoutNotifier(this._repository, this._ref)
-      : super(const AsyncValue.loading()) {
+    : super(const AsyncValue.loading()) {
     loadCheckout();
   }
 
   Future<void> loadCheckout() async {
     final authState = _ref.read(authStateProvider);
     if (!authState.isAuthenticated) {
-      state = AsyncValue.data(
-        CheckoutView(cart: CartView.empty(), issues: []),
-      );
+      state = AsyncValue.data(CheckoutView(cart: CartView.empty(), issues: []));
       return;
     }
 
@@ -42,6 +41,7 @@ class CheckoutNotifier extends StateNotifier<AsyncValue<CheckoutView>> {
     required String notes,
     required String paymentPreference,
   }) async {
+    lastError = null;
     final current = state.valueOrNull;
     if (current == null) return false;
 
@@ -56,7 +56,18 @@ class CheckoutNotifier extends StateNotifier<AsyncValue<CheckoutView>> {
       state = AsyncValue.data(updated);
       return true;
     } catch (e) {
+      lastError = e.toString();
       await loadCheckout();
+      return false;
+    }
+  }
+
+  Future<bool> deleteDraft() async {
+    try {
+      state = AsyncValue.data(await _repository.deleteDraft());
+      return true;
+    } catch (error) {
+      lastError = error.toString();
       return false;
     }
   }
@@ -64,6 +75,7 @@ class CheckoutNotifier extends StateNotifier<AsyncValue<CheckoutView>> {
 
 final checkoutProvider =
     StateNotifierProvider<CheckoutNotifier, AsyncValue<CheckoutView>>((ref) {
-  final repository = ref.watch(checkoutRepositoryProvider);
-  return CheckoutNotifier(repository, ref);
-});
+      final repository = ref.watch(checkoutRepositoryProvider);
+      ref.watch(authStateProvider.select((state) => state.user?.id));
+      return CheckoutNotifier(repository, ref);
+    });

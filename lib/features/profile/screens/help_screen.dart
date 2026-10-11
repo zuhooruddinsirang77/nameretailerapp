@@ -38,7 +38,7 @@ class HelpScreen extends StatelessWidget {
         color: p.metricDr,
         title: 'Planning cart vs. order draft',
         body:
-            'Adding to your cart saves your configuration privately. Creating an order draft reserves your proposal for 7 days without taking payment.',
+            'Your cart saves placement briefs privately. Billing drafts are saved for 7 days without reserving inventory or taking payment. Choose Stripe or PayPal at checkout to pay, then check the verified order status in Your orders.',
       ),
       (
         icon: Icons.link_rounded,

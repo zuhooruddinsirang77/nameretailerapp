@@ -1,4 +1,6 @@
 import '../../marketplace/models/placement_options.dart';
+import 'article_file.dart';
+import 'brief_validation.dart';
 
 class PlacementBrief {
   final String promotedUrl;
@@ -53,6 +55,33 @@ class PlacementBrief {
 }
 
 class CartItem {
+  String? get issue {
+    if (status == 'unavailable') {
+      return 'This publication is no longer available.';
+    }
+    if (status == 'changed') {
+      return 'Pricing or terms changed. Review and save the brief again.';
+    }
+    final value = brief;
+    if (value == null) return 'Complete the placement brief.';
+    if (validatePromotedUrl(value.promotedUrl) != null ||
+        value.keyword.trim().isEmpty) {
+      return 'Complete the destination URL and keyword.';
+    }
+    if (value.fileId != null && !(file?.available ?? false)) {
+      return 'Your article file expired or is unavailable. Upload it again.';
+    }
+    if (writingWords == 0 &&
+        value.articleText.trim().isEmpty &&
+        !(file?.available ?? false)) {
+      return 'Supply article text or an available article file.';
+    }
+    if (writingWords != 0 && value.articleText.trim().isEmpty) {
+      return 'Add an article brief for the writing package.';
+    }
+    return null;
+  }
+
   final String productId;
   final int productVersion;
   final int writingWords; // 0, 500, 750, 1000
@@ -63,6 +92,7 @@ class CartItem {
   final String status; // 'ready', 'changed', 'unavailable'
   final PlacementOptions? options;
   final PlacementBrief? brief;
+  final ArticleFile? file;
 
   CartItem({
     required this.productId,
@@ -75,6 +105,7 @@ class CartItem {
     this.status = 'ready',
     this.options,
     this.brief,
+    this.file,
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -87,11 +118,15 @@ class CartItem {
       writingCents: (json['writingCents'] as num?)?.toInt(),
       totalCents: (json['totalCents'] as num?)?.toInt(),
       status: json['status'] as String? ?? 'ready',
-      options: json['options'] != null && json['options'] is Map<String, dynamic>
+      options:
+          json['options'] != null && json['options'] is Map<String, dynamic>
           ? PlacementOptions.fromJson(json['options'] as Map<String, dynamic>)
           : null,
       brief: json['brief'] != null && json['brief'] is Map<String, dynamic>
           ? PlacementBrief.fromJson(json['brief'] as Map<String, dynamic>)
+          : null,
+      file: json['file'] is Map<String, dynamic>
+          ? ArticleFile.fromJson(json['file'] as Map<String, dynamic>)
           : null,
     );
   }

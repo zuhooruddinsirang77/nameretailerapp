@@ -1,29 +1,30 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../core/theme/app_palette.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../marketplace/models/placement_options.dart';
 import '../../marketplace/models/product.dart';
+import '../../marketplace/providers/product_provider.dart';
+import '../data/article_repository.dart';
+import '../models/article_file.dart';
+import '../models/brief_validation.dart';
 import '../models/cart.dart';
 import '../providers/cart_provider.dart';
+import '../widgets/article_toolbar.dart';
 
-/// Opens the "Plan placement" sheet for [product].
 Future<void> showPlacementSheet(
   BuildContext context,
   Product product, {
   PlacementOptions? options,
-}) {
-  return showAppSheetRaw<void>(
-    context,
-    builder: (_) => ConfigurePlacementSheet(product: product, options: options),
-  );
-}
+}) => showAppSheetRaw<void>(
+  context,
+  isDismissible: false,
+  builder: (_) => ConfigurePlacementSheet(product: product, options: options),
+);
 
 class ConfigurePlacementSheet extends ConsumerStatefulWidget {
   const ConfigurePlacementSheet({
@@ -31,10 +32,8 @@ class ConfigurePlacementSheet extends ConsumerStatefulWidget {
     required this.product,
     this.options,
   });
-
   final Product product;
   final PlacementOptions? options;
-
   @override
   ConsumerState<ConfigurePlacementSheet> createState() =>
       _ConfigurePlacementSheetState();
@@ -43,297 +42,606 @@ class ConfigurePlacementSheet extends ConsumerStatefulWidget {
 class _ConfigurePlacementSheetState
     extends ConsumerState<ConfigurePlacementSheet> {
   final _formKey = GlobalKey<FormState>();
-  int _writingWords = 0; // 0, 500, 750, 1000
-  final _urlController = TextEditingController();
-  final _keywordController = TextEditingController();
-  final _instructionsController = TextEditingController();
-  final _articleController = TextEditingController();
-  final _keywordFocus = FocusNode();
-  final _notesFocus = FocusNode();
+  final _url = TextEditingController(), _keyword = TextEditingController();
+  final _requirements = TextEditingController(),
+      _article = TextEditingController();
   final _articleFocus = FocusNode();
-  bool _saving = false;
+  PlacementOptions? _options;
+  ArticleFile? _file;
+  List<ArticleFile> _files = [];
+  int _words = 0;
+  bool _loading = true, _busy = false, _uploadMode = false, _restored = false;
+  String? _error;
 
-  static const _defaultPrices = {500: 3500, 750: 5000, 1000: 6500};
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
 
   @override
   void dispose() {
-    _urlController.dispose();
-    _keywordController.dispose();
-    _instructionsController.dispose();
-    _articleController.dispose();
-    _keywordFocus.dispose();
-    _notesFocus.dispose();
+    for (final controller in [_url, _keyword, _requirements, _article]) {
+      controller.dispose();
+    }
     _articleFocus.dispose();
     super.dispose();
   }
 
-  int _priceFor(int words) {
-    if (words == 0) return 0;
-    final fallback = _defaultPrices[words] ?? 0;
-    final opts = widget.options;
-    if (opts != null) {
-      return opts.writingOptions
-          .firstWhere(
-            (o) => o.words == words,
-            orElse: () => WritingOption(words: words, priceCents: 0),
-          )
-          .priceCents;
-    }
-    return fallback;
-  }
-
-  int get _writingPriceCents => _priceFor(_writingWords);
-
-  int get _totalPriceCents => widget.product.priceCents + _writingPriceCents;
-
-  String? _validateUrl(String? v) {
-    final value = v?.trim() ?? '';
-    if (value.isEmpty) return null;
-    final looksValid = RegExp(
-      r'^(https?://)?([\w-]+\.)+[a-zA-Z]{2,}(:\d+)?(/\S*)?$',
-    ).hasMatch(value);
-    return looksValid
-        ? null
-        : 'Enter a full link, e.g. https://example.com/page';
-  }
-
-  Future<void> _savePlacement() async {
-    final authState = ref.read(authStateProvider);
-    if (!authState.isAuthenticated) {
-      HapticFeedback.heavyImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please sign in to save placements to your planning cart.',
-          ),
-        ),
-      );
-      context.push('/login');
-      return;
-    }
-
-    if (!_formKey.currentState!.validate()) {
-      HapticFeedback.heavyImpact();
-      return;
-    }
-
-    setState(() => _saving = true);
-    HapticFeedback.mediumImpact();
-
-    final cartItem = CartItem(
-      productId: widget.product.id,
-      productVersion: widget.product.version,
-      writingWords: _writingWords,
-      domain: widget.product.domain,
-      placementCents: widget.product.priceCents,
-      writingCents: _writingPriceCents,
-      totalCents: _totalPriceCents,
-      status: 'ready',
-      options: widget.options,
-      brief: PlacementBrief(
-        promotedUrl: _urlController.text.trim(),
-        keyword: _keywordController.text.trim(),
-        specialRequirements: _instructionsController.text.trim(),
-        articleText: _articleController.text.trim(),
-      ),
-    );
-
-    final messenger = ScaffoldMessenger.of(context);
-    final router = GoRouter.of(context);
-    final domainName = Formatters.cleanDomain(widget.product.domain);
-    final success = await ref.read(cartProvider.notifier).saveItem(cartItem);
+  Future<void> _load() async {
     if (!mounted) return;
-    setState(() => _saving = false);
-
-    Navigator.of(context).pop();
-    if (success) {
-      HapticFeedback.lightImpact();
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text('$domainName added to your planning cart.'),
-            action: SnackBarAction(
-              label: 'View cart',
-              onPressed: () => router.go('/cart'),
-            ),
-          ),
-        );
-    } else {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              "We couldn't update your cart. Check your connection and try again.",
-            ),
-          ),
-        );
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final options = await ref
+          .read(productRepositoryProvider)
+          .getProductOptions(widget.product.id);
+      if (!mounted) return;
+      if (ref.read(authStateProvider).isAuthenticated) {
+        await ref.read(cartProvider.notifier).loadCart();
+        if (!mounted) return;
+        final saved = ref
+            .read(cartProvider)
+            .valueOrNull
+            ?.items
+            .where((item) => item.productId == widget.product.id)
+            .firstOrNull;
+        if (!_restored && saved != null) {
+          _words = saved.writingWords;
+          _url.text = saved.brief?.promotedUrl ?? '';
+          _keyword.text = saved.brief?.keyword ?? '';
+          _requirements.text = saved.brief?.specialRequirements ?? '';
+          _article.text = saved.brief?.articleText ?? '';
+          _file = saved.file;
+          _uploadMode = saved.brief?.fileId != null;
+          _restored = true;
+          if (_uploadMode && _file == null) {
+            _error =
+                'Your article file expired or is unavailable. Upload it again.';
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _options = options;
+        _loading = false;
+      });
+      if (ref.read(authStateProvider).isAuthenticated) {
+        try {
+          final files = await ref.read(articleRepositoryProvider).list();
+          if (mounted) {
+            setState(
+              () => _files = files.where((file) => file.available).toList(),
+            );
+          }
+        } catch (error) {
+          if (mounted) setState(() => _error = error.toString());
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final domainName = Formatters.cleanDomain(widget.product.domain);
-    final writing = _writingPriceCents;
+  int get _writingCents =>
+      _options?.writingOptions
+          .where((option) => option.words == _words)
+          .firstOrNull
+          ?.priceCents ??
+      0;
+  int get _total => (_options?.placementCents ?? 0) + _writingCents;
+  Future<void> _signIn() async {
+    await context.push('/login');
+    if (mounted && ref.read(authStateProvider).isAuthenticated) await _load();
+  }
 
-    final packages = <({int words, String title, String subtitle})>[
-      (
-        words: 0,
-        title: 'I will provide the article',
-        subtitle: 'Supply a finished draft for editorial review',
-      ),
-      (
-        words: 500,
-        title: '500-word article',
-        subtitle: 'Written for this publication’s niche',
-      ),
-      (
-        words: 750,
-        title: '750-word long-form',
-        subtitle: 'In-depth, with editorial context',
-      ),
-      (
-        words: 1000,
-        title: '1,000-word authority guide',
-        subtitle: 'Subheadings and thorough analysis',
-      ),
-    ];
+  Future<void> _upload() async {
+    if (!ref.read(authStateProvider).isAuthenticated) {
+      await _signIn();
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final chosen = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
+      );
+      if (chosen == null || !mounted) return;
+      final size = await chosen.length();
+      if (size == null || size == 0 || size > 5 * 1024 * 1024) {
+        throw Exception('Choose a nonempty article file up to 5 MiB.');
+      }
+      final bytes = await chosen.readAsBytes();
+      if (!mounted) return;
+      final uploaded = await ref
+          .read(articleRepositoryProvider)
+          .upload(chosen.name, bytes);
+      if (mounted) {
+        setState(() {
+          _file = uploaded;
+          _files = [uploaded, ..._files];
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
-    return AppSheetFrame(
-      title: 'Plan placement',
-      subtitle: domainName,
-      footer: PriceActionRow(
-        label: 'Total',
-        cents: _totalPriceCents,
-        caption: writing > 0
-            ? '${Formatters.formatCurrency(widget.product.priceCents)} placement + ${Formatters.formatCurrency(writing)} writing'
-            : 'Placement fee only',
-        actionLabel: 'Save to cart',
-        actionIcon: Icons.shopping_bag_outlined,
-        loading: _saving,
-        onAction: _savePlacement,
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SectionHeader(title: 'Article content'),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              'Choose whether you supply the content or we write it.',
-              style: context.text.bodySmall?.copyWith(color: p.textMuted),
-            ),
-            const SizedBox(height: AppSpace.md),
-            for (final pkg in packages) ...[
-              ChoiceTile(
-                selected: _writingWords == pkg.words,
-                title: pkg.title,
-                subtitle: pkg.subtitle,
-                semanticLabel:
-                    '${pkg.title}. ${pkg.subtitle}. ${_priceFor(pkg.words) == 0 ? 'Included' : Formatters.formatCurrency(_priceFor(pkg.words))}',
-                trailing: _PriceTag(
-                  cents: _priceFor(pkg.words),
-                  selected: _writingWords == pkg.words,
-                ),
-                onTap: () => setState(() => _writingWords = pkg.words),
-              ),
-              const SizedBox(height: AppSpace.sm),
-            ],
-            const SizedBox(height: AppSpace.lg),
-            const SectionHeader(title: 'Placement brief'),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              'Tell the publisher what to link to and how.',
-              style: context.text.bodySmall?.copyWith(color: p.textMuted),
-            ),
-            const SizedBox(height: AppSpace.md),
-            AppTextField(
-              controller: _urlController,
-              label: 'Page to promote',
-              hint: 'https://example.com/landing-page',
-              icon: Icons.link_rounded,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.url],
-              validator: _validateUrl,
-              onSubmitted: (_) => _keywordFocus.requestFocus(),
-            ),
-            const SizedBox(height: AppSpace.md),
-            AppTextField(
-              controller: _keywordController,
-              focusNode: _keywordFocus,
-              label: 'Anchor text / keyword',
-              hint: 'e.g. enterprise CRM software',
-              icon: Icons.text_fields_rounded,
-              textInputAction: TextInputAction.next,
-              onSubmitted: (_) => _notesFocus.requestFocus(),
-            ),
-            const SizedBox(height: AppSpace.md),
-            AppTextField(
-              controller: _instructionsController,
-              focusNode: _notesFocus,
-              label: 'Notes for the editor (optional)',
-              hint: 'Talking points, brand rules, tone…',
-              minLines: 2,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: _writingWords == 0
-                  ? TextInputAction.next
-                  : TextInputAction.done,
-              onSubmitted: (_) => _writingWords == 0
-                  ? _articleFocus.requestFocus()
-                  : FocusScope.of(context).unfocus(),
-            ),
-            MotionSize(
-              duration: AppMotion.of(context, AppMotion.base),
-              curve: AppMotion.standard,
-              alignment: Alignment.topCenter,
-              child: _writingWords == 0
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: AppSpace.md),
-                      child: AppTextField(
-                        controller: _articleController,
-                        focusNode: _articleFocus,
-                        label: 'Your article',
-                        hint: 'Paste the headline and body here…',
-                        minLines: 4,
-                        maxLines: 8,
-                        textCapitalization: TextCapitalization.sentences,
-                      ),
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-          ],
-        ),
+  Future<void> _removeFile() async {
+    final file = _file;
+    if (file == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(articleRepositoryProvider).remove(file.id);
+      if (mounted) {
+        setState(() {
+          _file = null;
+          _files.removeWhere((value) => value.id == file.id);
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _downloadFile() async {
+    final file = _file;
+    if (file == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final bytes = await ref.read(articleRepositoryProvider).download(file.id);
+      if (!mounted) return;
+      await FilePicker.saveFile(fileName: file.name, bytes: bytes);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (!ref.read(authStateProvider).isAuthenticated) {
+      await _signIn();
+      return;
+    }
+    final options = _options;
+    if (options == null || !_formKey.currentState!.validate()) return;
+    if (_words != 0 &&
+        !options.writingOptions.any((value) => value.words == _words)) {
+      setState(
+        () => _error =
+            'This writing package is unavailable. Choose a current option.',
+      );
+      return;
+    }
+    if (_words == 0 && _file != null && !_file!.available) {
+      setState(() => _error = 'Your article file expired. Upload it again.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final item = CartItem(
+      productId: options.productId,
+      productVersion: options.productVersion,
+      writingWords: _words,
+      domain: options.domain,
+      placementCents: options.placementCents,
+      writingCents: _writingCents,
+      totalCents: _total,
+      options: options,
+      brief: PlacementBrief(
+        promotedUrl: _url.text.trim(),
+        keyword: _keyword.text.trim(),
+        specialRequirements: _requirements.text.trim(),
+        articleText: _article.text.trim(),
+        fileId: _words == 0 ? _file?.id : null,
       ),
     );
+    final notifier = ref.read(cartProvider.notifier);
+    final success = await notifier.saveItem(item);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!success) {
+      final error = notifier.lastError;
+      _restored = true;
+      await _load();
+      if (mounted) {
+        setState(
+          () => _error =
+              error ?? 'Review the current prices and try saving again.',
+        );
+      }
+      return;
+    }
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    router.go('/cart');
   }
-}
-
-class _PriceTag extends StatelessWidget {
-  const _PriceTag({required this.cents, required this.selected});
-
-  final int cents;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 4),
-      decoration: BoxDecoration(
-        color: selected ? p.surface : p.surfaceAlt,
-        borderRadius: AppRadius.brSm,
-      ),
-      child: Text(
-        cents == 0 ? 'Included' : '+${Formatters.formatCurrency(cents)}',
-        style: context.text.labelMedium?.copyWith(
-          color: cents == 0 ? p.textSecondary : p.price,
-        ),
+    final signedIn = ref.watch(
+      authStateProvider.select((state) => state.isAuthenticated),
+    );
+    final options = _options;
+    return PopScope(
+      canPop: !_busy,
+      child: AppSheetFrame(
+        title: 'Create a placement brief',
+        subtitle: Formatters.cleanDomain(widget.product.domain),
+        footer: options == null
+            ? null
+            : PriceActionRow(
+                label: 'Total (USD)',
+                cents: _total,
+                caption:
+                    '${Formatters.formatCurrency(options.placementCents)} placement + ${Formatters.formatCurrency(_writingCents)} writing',
+                actionLabel: signedIn
+                    ? 'Save placement'
+                    : 'Sign in to save',
+                actionIcon: Icons.arrow_forward_rounded,
+                loading: _busy,
+                onAction: _loading || _busy ? null : _save,
+              ),
+        child: _loading
+            ? const SizedBox(height: 280, child: FormSkeleton())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null) ...[
+                    InlineMessage(tone: MessageTone.danger, message: _error!),
+                    TextButton(
+                      onPressed: _busy ? null : _load,
+                      child: const Text('Refresh publication'),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                  ],
+                  if (options != null)
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const InlineMessage(
+                            title: 'How it works',
+                            message:
+                                '1. Share your destination URL and keyword.\n2. Add your article or choose a writing package.\n3. Review the publication requirements.\n4. Save your brief and continue to review.',
+                          ),
+                          const SizedBox(height: AppSpace.lg),
+                          const SectionHeader(
+                            title: 'Your selected publication',
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          AppCard(
+                            child: Column(
+                              children: [
+                                KeyValueRow(
+                                  label: 'Placement price',
+                                  value: Formatters.formatCurrency(
+                                    options.placementCents,
+                                  ),
+                                ),
+                                KeyValueRow(
+                                  label: 'Link type',
+                                  value: options.linkType.isEmpty
+                                      ? 'Not supplied'
+                                      : options.linkType,
+                                ),
+                                KeyValueRow(
+                                  label: 'Turnaround',
+                                  value: options.turnaround.isEmpty
+                                      ? 'Not supplied'
+                                      : options.turnaround,
+                                ),
+                                const SizedBox(height: AppSpace.sm),
+                                InlineMessage(
+                                  message: options.requirements.isEmpty
+                                      ? 'No additional publisher requirements were supplied. Please confirm placement scope before purchase.'
+                                      : options.requirements,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.lg),
+                          const SectionHeader(
+                            title: 'Create your placement brief',
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          AppTextField(
+                            controller: _url,
+                            label: 'Promoted URL *',
+                            hint: 'https://your-site.com/page/',
+                            icon: Icons.link,
+                            enabled: !_busy,
+                            keyboardType: TextInputType.url,
+                            autocorrect: false,
+                            maxLength: 2048,
+                            validator: validatePromotedUrl,
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          AppTextField(
+                            controller: _keyword,
+                            label: 'Keyword or anchor text *',
+                            hint: 'e.g. best productivity tools',
+                            enabled: !_busy,
+                            maxLength: 200,
+                            validator: (value) => validateBriefText(
+                              value,
+                              max: 200,
+                              required: true,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          AppTextField(
+                            controller: _requirements,
+                            label: 'Special requirements (optional)',
+                            hint:
+                                'Suggested title, audience, tone and placement constraints...',
+                            enabled: !_busy,
+                            minLines: 2,
+                            maxLines: 4,
+                            maxLength: 4000,
+                            validator: (value) =>
+                                validateBriefText(value, max: 4000),
+                          ),
+                          const SizedBox(height: AppSpace.lg),
+                          const SectionHeader(title: 'Select pricing option'),
+                          const SizedBox(height: AppSpace.md),
+                          IgnorePointer(
+                            ignoring: _busy,
+                            child: Column(
+                              children: [
+                                ChoiceTile(
+                                  selected: _words == 0,
+                                  title: 'Link only',
+                                  subtitle: 'Supply your own article.',
+                                  trailing: Text(
+                                    Formatters.formatCurrency(
+                                      options.placementCents,
+                                    ),
+                                  ),
+                                  onTap: () => setState(() => _words = 0),
+                                ),
+                                const SizedBox(height: AppSpace.sm),
+                                if (options.writingOptions.isNotEmpty)
+                                  ChoiceTile(
+                                    selected: _words != 0,
+                                    title: 'Link + article',
+                                    subtitle:
+                                        'Placement plus the allocated writing charge.',
+                                    trailing: Text(
+                                      _words != 0
+                                          ? Formatters.formatCurrency(_total)
+                                          : 'From ${Formatters.formatCurrency(options.placementCents + options.writingOptions.map((value) => value.priceCents).reduce((a, b) => a < b ? a : b))}',
+                                    ),
+                                    onTap: () => setState(
+                                      () => _words =
+                                          options.writingOptions.first.words,
+                                    ),
+                                  )
+                                else
+                                  const InlineMessage(
+                                    message:
+                                        'Article writing is unavailable for this publication.',
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (_words != 0) ...[
+                            const SizedBox(height: AppSpace.md),
+                            DropdownButtonFormField<int>(
+                              key: ValueKey('words-$_words'),
+                              initialValue:
+                                  options.writingOptions.any(
+                                    (value) => value.words == _words,
+                                  )
+                                  ? _words
+                                  : null,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Content length',
+                              ),
+                              items: options.writingOptions
+                                  .map(
+                                    (value) => DropdownMenuItem(
+                                      value: value.words,
+                                      child: Text(
+                                        '${value.words} words (+${Formatters.formatCurrency(value.priceCents)})',
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _busy
+                                  ? null
+                                  : (value) =>
+                                        setState(() => _words = value ?? 0),
+                              validator: (value) => value == null
+                                  ? 'Choose an available writing package.'
+                                  : null,
+                            ),
+                          ],
+                          const SizedBox(height: AppSpace.lg),
+                          SectionHeader(
+                            title: _words == 0
+                                ? 'Your article'
+                                : 'Article brief / theme suggestions',
+                          ),
+                          if (_words == 0)
+                            Wrap(
+                              spacing: AppSpace.sm,
+                              children: [
+                                ChoiceChip(
+                                  label: const Text('Paste your article'),
+                                  selected: !_uploadMode,
+                                  onSelected: _busy
+                                      ? null
+                                      : (_) =>
+                                            setState(() => _uploadMode = false),
+                                ),
+                                ChoiceChip(
+                                  label: const Text('Upload file'),
+                                  selected: _uploadMode,
+                                  onSelected: _busy
+                                      ? null
+                                      : (_) =>
+                                            setState(() => _uploadMode = true),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: AppSpace.md),
+                          if (!_uploadMode || _words != 0) ...[
+                            ArticleToolbar(
+                              controller: _article,
+                              focusNode: _articleFocus,
+                              enabled: !_busy,
+                            ),
+                            AppTextField(
+                              controller: _article,
+                              focusNode: _articleFocus,
+                              enabled: !_busy,
+                              label: _words == 0
+                                  ? 'Article text'
+                                  : 'Article brief *',
+                              hint: _words == 0
+                                  ? 'Paste your article here, or upload a file below...'
+                                  : 'Describe the topic, structure, audience and points the writer should cover.',
+                              minLines: 5,
+                              maxLines: 10,
+                              maxLength: 40000,
+                              validator: (value) => validateBriefText(
+                                value,
+                                max: 40000,
+                                required:
+                                    _words != 0 || !(_file?.available ?? false),
+                              ),
+                            ),
+                            const Text(
+                              'Use the toolbar to format your text. Upload a document to keep its original styling.',
+                            ),
+                          ],
+                          if (_words == 0) ...[
+                            const SizedBox(height: AppSpace.md),
+                            FormField<bool>(
+                              validator: (_) =>
+                                  _article.text.trim().isEmpty &&
+                                      !(_file?.available ?? false)
+                                  ? 'Paste your article or upload an available file.'
+                                  : null,
+                              builder: (field) => AppCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text(
+                                      'Or upload article (instead of pasted text)',
+                                    ),
+                                    const SizedBox(height: AppSpace.sm),
+                                    AppButton(
+                                      label: signedIn
+                                          ? 'Choose file'
+                                          : 'Sign in to upload',
+                                      icon: Icons.upload_file,
+                                      onPressed: _busy ? null : _upload,
+                                      variant: AppButtonVariant.outline,
+                                    ),
+                                    const Text(
+                                      'PDF, DOC, DOCX or TXT up to 5 MiB. Files are private, expire after 7 days and are not malware-scanned.',
+                                    ),
+                                    if (_files.isNotEmpty)
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey(
+                                          'file-${_file?.id}-${_files.length}',
+                                        ),
+                                        initialValue:
+                                            _files.any(
+                                              (value) => value.id == _file?.id,
+                                            )
+                                            ? _file?.id
+                                            : null,
+                                        isExpanded: true,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Reuse a retained article',
+                                        ),
+                                        items: _files
+                                            .map(
+                                              (value) => DropdownMenuItem(
+                                                value: value.id,
+                                                child: Text(
+                                                  value.name,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: _busy
+                                            ? null
+                                            : (id) => setState(
+                                                () => _file = _files
+                                                    .where(
+                                                      (value) => value.id == id,
+                                                    )
+                                                    .firstOrNull,
+                                              ),
+                                      ),
+                                    if (_file != null) ...[
+                                      Text('Selected: ${_file!.name}'),
+                                      TextButton(
+                                        onPressed: _busy ? null : _downloadFile,
+                                        child: const Text(
+                                          'Download article file',
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: _busy ? null : _removeFile,
+                                        child: const Text(
+                                          'Delete article file',
+                                        ),
+                                      ),
+                                    ],
+                                    if (field.hasError)
+                                      InlineMessage(
+                                        tone: MessageTone.danger,
+                                        message: field.errorText!,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: AppSpace.lg),
+                          const InlineMessage(
+                            title: 'Before you continue',
+                            message:
+                                'Saving a brief does not reserve inventory, place an order or charge a payment. Paid-in-kind disclosures must be agreed before publication.',
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }

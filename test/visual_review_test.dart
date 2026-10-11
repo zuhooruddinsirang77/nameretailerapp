@@ -171,6 +171,7 @@ void main() {
       );
       await tester.tap(find.text('Open placement'));
       await capture('placement-sheet');
+      debugDisableShadows = previousShadows;
     },
     skip: !const bool.fromEnvironment('CAPTURE_UI'),
   );

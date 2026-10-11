@@ -16,6 +16,15 @@ class CheckoutRepository {
     }
   }
 
+  Future<CheckoutView> deleteDraft() async {
+    try {
+      await _apiClient.dio.delete(ApiConstants.checkout);
+      return getCheckout();
+    } catch (error) {
+      throw ApiException(_apiClient.extractErrorMessage(error));
+    }
+  }
+
   Future<CheckoutView> saveCheckoutDraft({
     required int version,
     required int cartVersion,

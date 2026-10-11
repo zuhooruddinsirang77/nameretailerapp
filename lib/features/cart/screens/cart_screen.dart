@@ -10,6 +10,8 @@ import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/cart.dart';
 import '../providers/cart_provider.dart';
+import 'configure_placement_sheet.dart';
+import '../../marketplace/models/product.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -166,10 +168,13 @@ class _CartBody extends ConsumerWidget {
           cents: totalCents,
           actionLabel: 'Checkout',
           actionIcon: Icons.arrow_forward_rounded,
-          onAction: () {
-            HapticFeedback.mediumImpact();
-            context.push('/checkout');
-          },
+          onAction:
+              cart.totalCents == null || items.any((item) => item.issue != null)
+              ? null
+              : () {
+                  HapticFeedback.mediumImpact();
+                  context.push('/checkout');
+                },
         ),
       ],
     );
@@ -286,17 +291,48 @@ class _CartItemCard extends ConsumerWidget {
               ],
             ),
           ],
-          if (item.status == 'changed' || item.status == 'unavailable') ...[
+          if (item.file != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text('Article file: ${item.file!.name}'),
+          ],
+          if (item.options != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            KeyValueRow(label: 'Link type', value: item.options!.linkType),
+          ],
+          if (item.issue != null) ...[
             const SizedBox(height: AppSpace.sm),
             InlineMessage(
               tone: item.status == 'unavailable'
                   ? MessageTone.danger
                   : MessageTone.warning,
-              message: item.status == 'unavailable'
-                  ? 'This publication is no longer available.'
-                  : 'Pricing or terms changed since you added this.',
+              message: item.issue!,
             ),
           ],
+          if (item.status != 'unavailable')
+            TextButton.icon(
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit placement brief'),
+              onPressed: () => showPlacementSheet(
+                context,
+                Product(
+                  id: item.productId,
+                  domain: raw,
+                  language: '',
+                  country: '',
+                  category: '',
+                  priceCents:
+                      item.options?.placementCents ?? item.placementCents ?? 0,
+                  currency: 'USD',
+                  status: 'active',
+                  metrics: ProductMetrics(),
+                  linkType: item.options?.linkType ?? '',
+                  turnaround: item.options?.turnaround ?? '',
+                  requirements: item.options?.requirements ?? '',
+                  version: item.options?.productVersion ?? item.productVersion,
+                ),
+                options: item.options,
+              ),
+            ),
         ],
       ),
     );

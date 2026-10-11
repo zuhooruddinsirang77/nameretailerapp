@@ -66,8 +66,11 @@ void main() {
       expect(tester.takeException(), isNull);
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Save to cart'));
-      expect(find.text('Save to cart').hitTestable(), findsOneWidget);
+      await tester.ensureVisible(find.text('Save placement'));
+      expect(
+        find.text('Save placement').hitTestable(),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Filter sheet at ${config.name}', (tester) async {
@@ -182,31 +185,34 @@ void main() {
     );
     await tester.tap(find.text('Open placement'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('500-word article'));
+    await tester.ensureVisible(find.text('Link + article'));
+    await tester.tap(find.text('Link + article'));
     await tester.pumpAndSettle();
     final fields = find.byType(TextFormField);
     await tester.ensureVisible(fields.at(0));
-    await tester.enterText(fields.at(0), 'https://client.example/page');
+    await tester.enterText(fields.at(0), 'https://client-site.com/page');
     await tester.ensureVisible(fields.at(1));
     await tester.enterText(fields.at(1), 'target keyword');
     await tester.ensureVisible(fields.at(2));
     await tester.enterText(fields.at(2), 'Publisher instructions');
-    await tester.ensureVisible(find.text('Save to cart'));
-    await tester.tap(find.text('Save to cart'));
+    await tester.ensureVisible(fields.at(3));
+    await tester.enterText(
+      fields.at(3),
+      'Describe enterprise software for a business audience.',
+    );
+    await tester.ensureVisible(find.text('Save placement'));
+    await tester.tap(find.text('Save placement'));
     await tester.pumpAndSettle();
     expect(repo.saved?.productId, 'p1');
-    expect(repo.saved?.productVersion, 1);
+    expect(repo.saved?.productVersion, 7);
     expect(repo.saved?.writingWords, 500);
     expect(repo.saved?.placementCents, 8800);
     expect(repo.saved?.writingCents, 3500);
     expect(repo.saved?.totalCents, 12300);
-    expect(repo.saved?.brief?.promotedUrl, 'https://client.example/page');
+    expect(repo.saved?.brief?.promotedUrl, 'https://client-site.com/page');
     expect(repo.saved?.brief?.keyword, 'target keyword');
     expect(repo.saved?.brief?.specialRequirements, 'Publisher instructions');
-    expect(
-      find.text('example-publisher.com added to your planning cart.'),
-      findsOneWidget,
-    );
+    expect(find.text('stub'), findsOneWidget);
   });
 
   testWidgets('Home search keeps query submission and destination', (

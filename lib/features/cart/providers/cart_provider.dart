@@ -12,8 +12,10 @@ final cartRepositoryProvider = Provider<CartRepository>((ref) {
 class CartNotifier extends StateNotifier<AsyncValue<CartView>> {
   final CartRepository _repository;
   final Ref _ref;
+  String? lastError;
 
-  CartNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
+  CartNotifier(this._repository, this._ref)
+    : super(const AsyncValue.loading()) {
     loadCart();
   }
 
@@ -34,6 +36,7 @@ class CartNotifier extends StateNotifier<AsyncValue<CartView>> {
   }
 
   Future<bool> saveItem(CartItem item) async {
+    lastError = null;
     final current = state.valueOrNull ?? CartView.empty();
     try {
       final updated = await _repository.saveItem(
@@ -43,6 +46,7 @@ class CartNotifier extends StateNotifier<AsyncValue<CartView>> {
       state = AsyncValue.data(updated);
       return true;
     } catch (e) {
+      lastError = e.toString();
       // Reload on conflict
       await loadCart();
       return false;
@@ -65,9 +69,11 @@ class CartNotifier extends StateNotifier<AsyncValue<CartView>> {
   }
 }
 
-final cartProvider =
-    StateNotifierProvider<CartNotifier, AsyncValue<CartView>>((ref) {
+final cartProvider = StateNotifierProvider<CartNotifier, AsyncValue<CartView>>((
+  ref,
+) {
   final repository = ref.watch(cartRepositoryProvider);
+  ref.watch(authStateProvider.select((state) => state.user?.id));
   return CartNotifier(repository, ref);
 });
 
